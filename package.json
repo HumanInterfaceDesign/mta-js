@@ -2,10 +2,24 @@
   "name": "mta-js",
   "module": "index.ts",
   "type": "module",
+  "bin": {
+    "mta-js": "./src/cli.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit",
+    "db:push": "bun src/cli.ts db push"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.3",
+    "csv-parse": "^6.2.1",
+    "fflate": "^0.8.2",
+    "protobufjs": "^8.0.3"
   }
 }
