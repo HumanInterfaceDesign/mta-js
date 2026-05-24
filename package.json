@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/HumanInterfaceDesign/mta-js.git"
+    "url": "https://github.com/HumanInterfaceDesign/mta-js.git"
   },
   "files": [
     "index.ts",
