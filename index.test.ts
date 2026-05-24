@@ -97,6 +97,12 @@ const firstAvLStaticData = {
 
 const openClients: MTA[] = [];
 
+function tempPath(name: string) {
+  const tmp = process.env.TMPDIR ?? "/tmp";
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${tmp.replace(/\/$/, "")}/mta-js-${name}-${id}`;
+}
+
 afterEach(() => {
   while (openClients.length) openClients.pop()?.close();
 });
@@ -282,7 +288,7 @@ test("alerts decode GTFS realtime alerts and filter by route", async () => {
 });
 
 test("databaseUrl accepts a file URL for the SQLite GTFS database", async () => {
-  const databaseUrl = "file:/private/tmp/mta-js-database-url.sqlite";
+  const databaseUrl = new URL(`file://${tempPath("database-url")}.sqlite`).toString();
   const mta = new MTA({ databaseUrl });
   openClients.push(mta);
 
@@ -482,9 +488,8 @@ test("unknown subway stop produces a typed actionable error when static data is 
 });
 
 test("CLI db import works against local SQLite", async () => {
-  const id = Date.now();
-  const databasePath = `/private/tmp/mta-js-cli-import-${id}.sqlite`;
-  const zipPath = `/private/tmp/mta-js-cli-import-${id}.zip`;
+  const databasePath = `${tempPath("cli-import")}.sqlite`;
+  const zipPath = `${tempPath("cli-import")}.zip`;
   const zip = zipSync({
     "stops.txt": strToU8(
       [
@@ -560,9 +565,8 @@ test("CLI db import works against local SQLite", async () => {
 });
 
 test("new MTA hydrates a remote databaseUrl into a local SQLite file", async () => {
-  const id = Date.now();
-  const sourcePath = `/private/tmp/mta-js-remote-source-${id}.sqlite`;
-  const localPath = `/private/tmp/mta-js-remote-local-${id}.sqlite`;
+  const sourcePath = `${tempPath("remote-source")}.sqlite`;
+  const localPath = `${tempPath("remote-local")}.sqlite`;
   const source = new GTFSCache(sourcePath);
   source.importSeed({
     stops: [{ stop_id: "A27", stop_name: "Jay St-MetroTech" }],
@@ -582,9 +586,8 @@ test("new MTA hydrates a remote databaseUrl into a local SQLite file", async () 
 });
 
 test("async methods wait for remote database hydration", async () => {
-  const id = Date.now();
-  const sourcePath = `/private/tmp/mta-js-remote-source-method-${id}.sqlite`;
-  const localPath = `/private/tmp/mta-js-remote-local-method-${id}.sqlite`;
+  const sourcePath = `${tempPath("remote-source-method")}.sqlite`;
+  const localPath = `${tempPath("remote-local-method")}.sqlite`;
   const source = new GTFSCache(sourcePath);
   source.importSeed({
     stops: [
@@ -654,7 +657,7 @@ tursoReadTest(
     const mta = new MTA({
       databaseUrl,
       databaseAuthToken,
-      databaseLocalPath: `/private/tmp/mta-js-turso-integration-${Date.now()}.sqlite`,
+      databaseLocalPath: `${tempPath("turso-integration")}.sqlite`,
     });
     openClients.push(mta);
 
@@ -674,7 +677,7 @@ tursoWriteTest("integration: pushes the GTFS schema to live Turso when write tes
   const mta = new MTA({
     databaseUrl,
     databaseAuthToken,
-    databaseLocalPath: `/private/tmp/mta-js-turso-push-${Date.now()}.sqlite`,
+    databaseLocalPath: `${tempPath("turso-push")}.sqlite`,
   });
   openClients.push(mta);
 
@@ -753,7 +756,7 @@ tursoWriteTest("integration: Turso-backed L train arrivals auto-import static da
   const mta = new MTA({
     databaseUrl,
     databaseAuthToken,
-    databaseLocalPath: `/private/tmp/mta-js-turso-static-${Date.now()}.sqlite`,
+    databaseLocalPath: `${tempPath("turso-static")}.sqlite`,
   });
   openClients.push(mta);
 
@@ -988,7 +991,7 @@ tursoFullGtfsTest(
     const mta = new MTA({
       databaseUrl,
       databaseAuthToken,
-      databaseLocalPath: `/private/tmp/mta-js-turso-full-gtfs-${Date.now()}.sqlite`,
+      databaseLocalPath: `${tempPath("turso-full-gtfs")}.sqlite`,
     });
     openClients.push(mta);
 
