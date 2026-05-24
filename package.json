@@ -16,7 +16,8 @@
   "module": "index.ts",
   "type": "module",
   "exports": {
-    ".": "./index.ts"
+    ".": "./index.ts",
+    "./serverless": "./serverless.ts"
   },
   "types": "./index.ts",
   "bin": {

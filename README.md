@@ -71,6 +71,27 @@ await mta.ready();
 
 Most Turso databases require an auth token. You can omit `databaseAuthToken` only for databases configured to allow anonymous reads.
 
+## Serverless Turso Runtime
+
+The default `mta-js` entrypoint uses `bun:sqlite` for local GTFS reads. In
+Next.js/Vercel serverless routes, import `mta-js/serverless` to read and write
+static GTFS data directly through Turso/libSQL without loading `bun:sqlite`.
+
+```ts
+import { MTA } from "mta-js/serverless";
+
+const mta = new MTA({
+  databaseUrl: process.env.TURSO_DATABASE_URL!,
+  databaseAuthToken: process.env.TURSO_AUTH_TOKEN,
+  busTimeKey: process.env.MTA_BUS_KEY,
+});
+
+const arrivals = await mta.subway.arrivals({
+  stopId: "A27",
+  route: "A",
+});
+```
+
 The name is intentionally broader than a filesystem path so the public API can grow into hosted database adapters later without changing constructor shape.
 
 You can inspect whether each transit mode has static GTFS ready before serving traffic:
