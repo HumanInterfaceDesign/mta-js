@@ -121,74 +121,100 @@ await mta.database.ensureStaticData({
 From the CLI:
 
 ```sh
-TURSO_DATABASE_URL=libsql://your-db.turso.io \
-TURSO_AUTH_TOKEN=... \
+MTA_DATABASE_URL=libsql://your-db.turso.io \
+MTA_DATABASE_AUTH_TOKEN=... \
 bun src/cli.ts db import --mode=subway --strategy=core
 ```
 
 ## Vercel Workflow Sync
 
-In production, keep static GTFS imports out of user-facing API requests. Run them as an admin workflow, cron-triggered workflow, or manual workflow run. Runtime requests should read from the Turso-backed local replica and fetch realtime GTFS-RT on demand.
+In production, keep static GTFS imports out of user-facing API requests. `mta-js` provides the database operations, and your app should own the Vercel Workflow setup that runs those operations on a schedule.
+
+Install and configure Workflow in your Vercel app, then copy a workflow like this into the app. Use generic database environment variables so the backing store can be a libSQL/Turso database today and another supported database later.
 
 ```ts
-// app/workflows/sync-mta-gtfs.ts
+// workflows/sync-mta-gtfs.ts
 import { MTA } from "mta-js";
 
 export async function syncMtaGtfs() {
   "use workflow";
-
-  const pushSchema = async () => {
-    "use step";
-
-    const mta = new MTA({
-      databaseUrl: process.env.TURSO_DATABASE_URL,
-      databaseAuthToken: process.env.TURSO_AUTH_TOKEN,
-      databaseLocalPath: "/tmp/mta-sync.sqlite",
-    });
-
-    try {
-      return await mta.database.push();
-    } finally {
-      mta.close();
-    }
-  };
-
-  const importSubwayCore = async () => {
-    "use step";
-
-    const mta = new MTA({
-      databaseUrl: process.env.TURSO_DATABASE_URL,
-      databaseAuthToken: process.env.TURSO_AUTH_TOKEN,
-      databaseLocalPath: "/tmp/mta-sync.sqlite",
-    });
-
-    try {
-      return await mta.database.importStaticData({
-        mode: "subway",
-        strategy: "core",
-        sourceUrl: "https://rrgtfsfeeds.s3.amazonaws.com/gtfs_subway.zip",
-      });
-    } finally {
-      mta.close();
-    }
-  };
 
   const schema = await pushSchema();
   const subway = await importSubwayCore();
 
   return { schema, subway };
 }
+
+async function pushSchema() {
+  "use step";
+
+  const mta = new MTA({
+    databaseUrl: process.env.MTA_DATABASE_URL,
+    databaseAuthToken: process.env.MTA_DATABASE_AUTH_TOKEN,
+    databaseLocalPath: "/tmp/mta-sync.sqlite",
+  });
+
+  try {
+    return await mta.database.push();
+  } finally {
+    mta.close();
+  }
+}
+
+async function importSubwayCore() {
+  "use step";
+
+  const mta = new MTA({
+    databaseUrl: process.env.MTA_DATABASE_URL,
+    databaseAuthToken: process.env.MTA_DATABASE_AUTH_TOKEN,
+    databaseLocalPath: "/tmp/mta-sync.sqlite",
+  });
+
+  try {
+    return await mta.database.importStaticData({
+      mode: "subway",
+      strategy: "core",
+      sourceUrl: "https://rrgtfsfeeds.s3.amazonaws.com/gtfs_subway.zip",
+    });
+  } finally {
+    mta.close();
+  }
+}
 ```
 
-Your application route can stay small and fast:
+Start the workflow from an app route. This route can be invoked manually or by Vercel Cron.
+
+```ts
+// app/api/sync-mta-gtfs/route.ts
+import { syncMtaGtfs } from "@/workflows/sync-mta-gtfs";
+import { start } from "workflow/api";
+
+export async function POST() {
+  const run = await start(syncMtaGtfs);
+  return Response.json({ runId: run.runId });
+}
+```
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/sync-mta-gtfs",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}
+```
+
+Runtime application routes can stay small and fast:
 
 ```ts
 // app/api/transit/l/route.ts
 import { MTA, StaticDataMissingError } from "mta-js";
 
 const mta = new MTA({
-  databaseUrl: process.env.TURSO_DATABASE_URL,
-  databaseAuthToken: process.env.TURSO_AUTH_TOKEN,
+  databaseUrl: process.env.MTA_DATABASE_URL,
+  databaseAuthToken: process.env.MTA_DATABASE_AUTH_TOKEN,
   databaseLocalPath: "/tmp/mta.sqlite",
   busTimeKey: process.env.MTA_BUS_KEY,
 });
@@ -211,7 +237,7 @@ export async function GET() {
 }
 ```
 
-Use `strategy: "core"` for normal production serving. It writes far less data to Turso and is enough for stop names, route branding, nearby stops, realtime arrivals, alerts, and bus vehicle calls. Use `strategy: "schedule"` only when you need static schedule lookups from `trips` and `stop_times`.
+Use `strategy: "core"` for normal production serving. It writes far less data than a full schedule import and is enough for stop names, route branding, nearby stops, realtime arrivals, alerts, and bus vehicle calls. Use `strategy: "schedule"` only when you need static schedule lookups from `trips` and `stop_times`.
 
 Live Turso integration tests are opt-in so normal test runs do not depend on credentials, network, or local proxy certificate state:
 

@@ -1,5 +1,8 @@
 {
   "name": "mta-js",
+  "version": "1.0.0",
+  "description": "A TypeScript client for MTA realtime and static GTFS data.",
+  "license": "MIT",
   "module": "index.ts",
   "type": "module",
   "exports": {
