@@ -3,6 +3,16 @@
   "version": "1.0.0",
   "description": "A TypeScript client for MTA realtime and static GTFS data.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HumanInterfaceDesign/mta-js.git"
+  },
+  "files": [
+    "index.ts",
+    "src",
+    "examples",
+    "README.md"
+  ],
   "module": "index.ts",
   "type": "module",
   "exports": {
