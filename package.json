@@ -2,6 +2,10 @@
   "name": "mta-js",
   "module": "index.ts",
   "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "types": "./index.ts",
   "bin": {
     "mta-js": "./src/cli.ts"
   },

@@ -7,6 +7,7 @@ export interface MTAOptions {
   databaseUrl?: string;
   databaseAuthToken?: string;
   databaseLocalPath?: string;
+  realtimeCacheTtlMs?: number;
   fetch?: typeof fetch;
   now?: () => Date;
   staticData?: StaticGtfsSeed;
@@ -44,10 +45,26 @@ export interface StaticGtfsImportLimits {
   stopTimes?: number;
 }
 
+export type StaticGtfsImportStrategy = "core" | "schedule";
+
 export interface StaticGtfsImportOptions {
+  strategy?: StaticGtfsImportStrategy;
   limits?: StaticGtfsImportLimits;
   rehydrate?: boolean;
 }
+
+export interface StaticDataStatus {
+  mode: TransitMode;
+  ready: boolean;
+  importedAt?: string;
+  sourceUrl?: string;
+  stopCount: number;
+  routeCount: number;
+  tripCount: number;
+  stopTimeCount: number;
+}
+
+export type DatabaseStatus = Record<TransitMode, StaticDataStatus>;
 
 export interface GtfsStopInput {
   stop_id: string;

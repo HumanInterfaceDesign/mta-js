@@ -73,6 +73,12 @@ Most Turso databases require an auth token. You can omit `databaseAuthToken` onl
 
 The name is intentionally broader than a filesystem path so the public API can grow into hosted database adapters later without changing constructor shape.
 
+You can inspect whether each transit mode has static GTFS ready before serving traffic:
+
+```ts
+await mta.database.status();
+```
+
 ## DB Push
 
 `mta-js` has a Drizzle-like schema push for its fixed GTFS schema. It does not generate migration files; it applies idempotent `create table if not exists` and `create index if not exists` statements.
@@ -86,11 +92,19 @@ const mta = new MTA({
 await mta.database.push();
 ```
 
-You can also make startup self-heal static data for a mode. If the import marker is missing, this writes the seed to the configured database and rehydrates the local replica.
+You can import official subway GTFS with the CLI. `core` is the default production strategy and imports stops/routes only; `schedule` also imports trips and stop times.
+
+```sh
+bun src/cli.ts db import --mode=subway --strategy=core
+bun src/cli.ts db import --mode=subway --strategy=schedule
+```
+
+You can also make startup self-heal static data for a mode. If the import marker is missing, this writes the seed to the configured database and rehydrates the local replica. The default strategy is `core`.
 
 ```ts
 await mta.database.ensureStaticData({
   mode: "subway",
+  strategy: "core",
   seed: {
     stops: [
       { stop_id: "L06", stop_name: "1 Av", stop_lat: 40.730953, stop_lon: -73.981628 },
@@ -109,8 +123,95 @@ From the CLI:
 ```sh
 TURSO_DATABASE_URL=libsql://your-db.turso.io \
 TURSO_AUTH_TOKEN=... \
-bun run db:push
+bun src/cli.ts db import --mode=subway --strategy=core
 ```
+
+## Vercel Workflow Sync
+
+In production, keep static GTFS imports out of user-facing API requests. Run them as an admin workflow, cron-triggered workflow, or manual workflow run. Runtime requests should read from the Turso-backed local replica and fetch realtime GTFS-RT on demand.
+
+```ts
+// app/workflows/sync-mta-gtfs.ts
+import { MTA } from "mta-js";
+
+export async function syncMtaGtfs() {
+  "use workflow";
+
+  const pushSchema = async () => {
+    "use step";
+
+    const mta = new MTA({
+      databaseUrl: process.env.TURSO_DATABASE_URL,
+      databaseAuthToken: process.env.TURSO_AUTH_TOKEN,
+      databaseLocalPath: "/tmp/mta-sync.sqlite",
+    });
+
+    try {
+      return await mta.database.push();
+    } finally {
+      mta.close();
+    }
+  };
+
+  const importSubwayCore = async () => {
+    "use step";
+
+    const mta = new MTA({
+      databaseUrl: process.env.TURSO_DATABASE_URL,
+      databaseAuthToken: process.env.TURSO_AUTH_TOKEN,
+      databaseLocalPath: "/tmp/mta-sync.sqlite",
+    });
+
+    try {
+      return await mta.database.importStaticData({
+        mode: "subway",
+        strategy: "core",
+        sourceUrl: "https://rrgtfsfeeds.s3.amazonaws.com/gtfs_subway.zip",
+      });
+    } finally {
+      mta.close();
+    }
+  };
+
+  const schema = await pushSchema();
+  const subway = await importSubwayCore();
+
+  return { schema, subway };
+}
+```
+
+Your application route can stay small and fast:
+
+```ts
+// app/api/transit/l/route.ts
+import { MTA, StaticDataMissingError } from "mta-js";
+
+const mta = new MTA({
+  databaseUrl: process.env.TURSO_DATABASE_URL,
+  databaseAuthToken: process.env.TURSO_AUTH_TOKEN,
+  databaseLocalPath: "/tmp/mta.sqlite",
+  busTimeKey: process.env.MTA_BUS_KEY,
+});
+
+export async function GET() {
+  await mta.ready();
+
+  const status = await mta.database.status();
+  if (!status.subway.ready) {
+    throw new StaticDataMissingError("subway");
+  }
+
+  const arrivals = await mta.subway.arrivals({
+    stopId: "L06",
+    route: "L",
+    limit: 5,
+  });
+
+  return Response.json({ arrivals });
+}
+```
+
+Use `strategy: "core"` for normal production serving. It writes far less data to Turso and is enough for stop names, route branding, nearby stops, realtime arrivals, alerts, and bus vehicle calls. Use `strategy: "schedule"` only when you need static schedule lookups from `trips` and `stop_times`.
 
 Live Turso integration tests are opt-in so normal test runs do not depend on credentials, network, or local proxy certificate state:
 
@@ -133,15 +234,32 @@ bun test
 
 If libSQL reports `invalid peer certificate: UnknownIssuer`, disable HTTPS interception for Turso/libSQL in your proxy tool or run the live Turso test without the proxy. The native libSQL sync client may not trust a debugging proxy certificate even when `fetch` requests do.
 
+Live MTA/Bustime integration tests are opt-in so normal test runs do not depend on external MTA availability:
+
+```sh
+MTA_LIVE_TEST=1 bun test
+```
+
+With a BusTime key:
+
+```sh
+MTA_LIVE_TEST=1 \
+MTA_BUS_KEY=... \
+bun test
+```
+
 Full subway GTFS import tests are also opt-in because they download, unzip, and import the real MTA subway GTFS feed:
 
 ```sh
-MTA_FULL_GTFS_TEST=1 bun test
+MTA_LIVE_TEST=1 \
+MTA_FULL_GTFS_TEST=1 \
+bun test
 ```
 
 To run the full GTFS import against Turso:
 
 ```sh
+MTA_LIVE_TEST=1 \
 MTA_FULL_GTFS_TEST=1 \
 TURSO_INTEGRATION_TEST=1 \
 TURSO_WRITE_TEST=1 \

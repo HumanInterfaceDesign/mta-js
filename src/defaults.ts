@@ -33,6 +33,10 @@ export const defaultEndpoints: MTAEndpoints = {
   busStopMonitoring: "https://bustime.mta.info/api/siri/stop-monitoring.json",
 };
 
+export const defaultStaticGtfsUrls = {
+  subway: "https://rrgtfsfeeds.s3.amazonaws.com/gtfs_subway.zip",
+} as const;
+
 export const subwayRouteColors: Record<string, string> = {
   "1": "EE352E",
   "2": "EE352E",

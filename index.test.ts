@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { createClient } from "@libsql/client";
-import { MTA, GTFSCache, encodeFeedMessage } from "./index";
+import { strToU8, zipSync } from "fflate";
+import { MTA, GTFSCache, StaticDataMissingError, UnknownStopError, encodeFeedMessage } from "./index";
 import { isLibsqlDatabaseUrl, isRemoteDatabaseUrl } from "./src/database-url";
 
 const staticData = {
@@ -47,6 +48,15 @@ const staticData = {
       trip_id: "A-trip-1",
       trip_headsign: "Inwood-207 St",
       direction_id: 0,
+    },
+  ],
+  stopTimes: [
+    {
+      trip_id: "A-trip-1",
+      arrival_time: "12:00:00",
+      departure_time: "12:00:00",
+      stop_id: "A27N",
+      stop_sequence: 1,
     },
   ],
 };
@@ -297,6 +307,258 @@ test("database.push applies the fixed GTFS schema idempotently", async () => {
   ).toEqual({ name: "stops" });
 });
 
+test("realtime cache avoids duplicate subway feed fetches within TTL", async () => {
+  const feed = encodeFeedMessage({
+    header: { gtfsRealtimeVersion: "2.0" },
+    entity: [
+      {
+        id: "arrival-1",
+        tripUpdate: {
+          trip: { tripId: "A-trip-1", routeId: "A" },
+          stopTimeUpdate: [{ stopId: "A27N", arrival: { time: 1_700_000_300 } }],
+        },
+      },
+    ],
+  });
+  let requests = 0;
+  const mta = new MTA({
+    now: () => new Date("2023-11-14T22:13:20.000Z"),
+    fetch: (async () => {
+      requests += 1;
+      return new Response(feed);
+    }) as unknown as typeof fetch,
+    endpoints: {
+      subwayFeeds: { A: "feed://ace" },
+    },
+  });
+  mta.static.importSeed(staticData, "subway");
+  openClients.push(mta);
+
+  await mta.subway.arrivals({ stopId: "A27", route: "A" });
+  await mta.subway.arrivals({ stopId: "A27", route: "A" });
+
+  expect(requests).toBe(1);
+});
+
+test("realtime cache expires after TTL", async () => {
+  const feed = encodeFeedMessage({
+    header: { gtfsRealtimeVersion: "2.0" },
+    entity: [
+      {
+        id: "arrival-1",
+        tripUpdate: {
+          trip: { routeId: "A" },
+          stopTimeUpdate: [{ stopId: "A27N", arrival: { time: 1_700_000_300 } }],
+        },
+      },
+    ],
+  });
+  let requests = 0;
+  let now = 1_700_000_000_000;
+  const mta = new MTA({
+    realtimeCacheTtlMs: 100,
+    now: () => new Date(now),
+    fetch: (async () => {
+      requests += 1;
+      return new Response(feed);
+    }) as unknown as typeof fetch,
+    endpoints: {
+      subwayFeeds: { A: "feed://ace" },
+    },
+  });
+  mta.static.importSeed(staticData, "subway");
+  openClients.push(mta);
+
+  await mta.subway.arrivals({ stopId: "A27", route: "A" });
+  now += 101;
+  await mta.subway.arrivals({ stopId: "A27", route: "A" });
+
+  expect(requests).toBe(2);
+});
+
+test("database.status reports missing and ready modes", async () => {
+  const mta = new MTA();
+  openClients.push(mta);
+
+  expect((await mta.database.status()).subway).toMatchObject({
+    mode: "subway",
+    ready: false,
+    stopCount: 0,
+    routeCount: 0,
+    tripCount: 0,
+    stopTimeCount: 0,
+  });
+
+  await mta.database.importStaticData({
+    mode: "subway",
+    seed: staticData,
+    strategy: "schedule",
+    sourceUrl: "test://static-data",
+  });
+
+  expect((await mta.database.status()).subway).toMatchObject({
+    mode: "subway",
+    ready: true,
+    sourceUrl: "test://static-data",
+    stopCount: 3,
+    routeCount: 2,
+    tripCount: 1,
+    stopTimeCount: 1,
+  });
+});
+
+test("static import strategy core avoids schedule rows", async () => {
+  const mta = new MTA();
+  openClients.push(mta);
+
+  const summary = await mta.database.importStaticData({
+    mode: "subway",
+    seed: staticData,
+    strategy: "core",
+  });
+
+  expect(summary).toMatchObject({
+    stopCount: 3,
+    routeCount: 2,
+    tripCount: 0,
+    stopTimeCount: 0,
+  });
+  expect(mta.static.db.query("select count(*) as count from trips").get()).toEqual({ count: 0 });
+  expect(mta.static.db.query("select count(*) as count from stop_times").get()).toEqual({ count: 0 });
+});
+
+test("static import strategy schedule includes trips and stop_times", async () => {
+  const mta = new MTA();
+  openClients.push(mta);
+
+  const summary = await mta.database.importStaticData({
+    mode: "subway",
+    seed: staticData,
+    strategy: "schedule",
+  });
+
+  expect(summary).toMatchObject({
+    stopCount: 3,
+    routeCount: 2,
+    tripCount: 1,
+    stopTimeCount: 1,
+  });
+  expect(mta.static.db.query("select count(*) as count from trips").get()).toEqual({ count: 1 });
+  expect(mta.static.db.query("select count(*) as count from stop_times").get()).toEqual({ count: 1 });
+});
+
+test("missing static data produces a typed actionable error", async () => {
+  const mta = new MTA();
+  openClients.push(mta);
+
+  await expect(
+    mta.stops.near({
+      lat: 40.730953,
+      lon: -73.981628,
+      modes: ["subway"],
+    }),
+  ).rejects.toThrow(StaticDataMissingError);
+  await expect(
+    mta.stops.near({
+      lat: 40.730953,
+      lon: -73.981628,
+      modes: ["subway"],
+    }),
+  ).rejects.toThrow("Run mta.database.importStaticData or the db import CLI");
+});
+
+test("unknown subway stop produces a typed actionable error when static data is ready", async () => {
+  const mta = new MTA({
+    endpoints: {
+      subwayFeeds: { A: "feed://ace" },
+    },
+    fetch: (async () => new Response(encodeFeedMessage({ header: { gtfsRealtimeVersion: "2.0" }, entity: [] }))) as unknown as typeof fetch,
+  });
+  mta.static.importSeed(staticData, "subway");
+  openClients.push(mta);
+
+  await expect(mta.subway.arrivals({ stopId: "NOPE", route: "A" })).rejects.toThrow(UnknownStopError);
+  await expect(mta.subway.arrivals({ stopId: "NOPE", route: "A" })).rejects.toThrow("Unknown MTA stop: NOPE");
+});
+
+test("CLI db import works against local SQLite", async () => {
+  const id = Date.now();
+  const databasePath = `/private/tmp/mta-js-cli-import-${id}.sqlite`;
+  const zipPath = `/private/tmp/mta-js-cli-import-${id}.zip`;
+  const zip = zipSync({
+    "stops.txt": strToU8(
+      [
+        "stop_id,stop_name,stop_lat,stop_lon",
+        "L06,1 Av,40.730953,-73.981628",
+        "",
+      ].join("\n"),
+    ),
+    "routes.txt": strToU8(
+      [
+        "route_id,route_short_name,route_long_name,route_type,route_color",
+        "L,L,14 St-Canarsie Local,1,A7A9AC",
+        "",
+      ].join("\n"),
+    ),
+    "trips.txt": strToU8(
+      [
+        "route_id,service_id,trip_id,trip_headsign,direction_id",
+        "L,weekday,L-trip-1,8 Av,0",
+        "",
+      ].join("\n"),
+    ),
+    "stop_times.txt": strToU8(
+      [
+        "trip_id,arrival_time,departure_time,stop_id,stop_sequence",
+        "L-trip-1,12:00:00,12:00:00,L06,1",
+        "",
+      ].join("\n"),
+    ),
+  });
+  await Bun.write(zipPath, zip);
+
+  const proc = Bun.spawn({
+    cmd: [
+      "bun",
+      "src/cli.ts",
+      "db",
+      "import",
+      `--database-url=${databasePath}`,
+      "--mode=subway",
+      "--strategy=core",
+      `--source-url=${new URL(`file://${zipPath}`).toString()}`,
+    ],
+    cwd: import.meta.dir,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+
+  if (exitCode !== 0) throw new Error(stderr);
+  expect(stdout).toContain("Imported subway GTFS (core)");
+  expect(stdout).toContain("stops=1");
+  expect(stdout).toContain("routes=1");
+  expect(stdout).toContain("trips=0");
+
+  const cache = new GTFSCache(databasePath, { createSchema: false });
+  try {
+    expect(cache.getStop("L06")?.name).toBe("1 Av");
+    expect(cache.importSummary("subway")).toMatchObject({
+      mode: "subway",
+      stopCount: 1,
+      routeCount: 1,
+      tripCount: 0,
+      stopTimeCount: 0,
+    });
+  } finally {
+    cache.close();
+  }
+});
+
 test("new MTA hydrates a remote databaseUrl into a local SQLite file", async () => {
   const id = Date.now();
   const sourcePath = `/private/tmp/mta-js-remote-source-${id}.sqlite`;
@@ -369,6 +631,7 @@ test("databaseUrl treats libsql URLs as remote database connections", () => {
 const tursoReadTest = process.env.TURSO_INTEGRATION_TEST === "1" ? test : test.skip;
 const tursoWriteTest =
   process.env.TURSO_INTEGRATION_TEST === "1" && process.env.TURSO_WRITE_TEST === "1" ? test : test.skip;
+const liveMtaTest = process.env.MTA_LIVE_TEST === "1" ? test : test.skip;
 const fullGtfsTest = process.env.MTA_FULL_GTFS_TEST === "1" ? test : test.skip;
 const tursoFullGtfsTest =
   process.env.MTA_FULL_GTFS_TEST === "1" &&
@@ -437,7 +700,7 @@ tursoWriteTest("integration: pushes the GTFS schema to live Turso when write tes
   expect(mta.static.db.query("select 1 as ok").get()).toEqual({ ok: 1 });
 });
 
-test("integration: subway arrivals do not require an MTA API key", async () => {
+liveMtaTest("integration: subway arrivals do not require an MTA API key", async () => {
   const mta = new MTA({
     staticData: {
       stops: staticData.stops,
@@ -460,7 +723,7 @@ test("integration: subway arrivals do not require an MTA API key", async () => {
   }
 });
 
-test("integration: live L train arrivals at 1 Av do not require an MTA API key", async () => {
+liveMtaTest("integration: live L train arrivals at 1 Av do not require an MTA API key", async () => {
   const mta = new MTA({
     staticData: firstAvLStaticData,
   });
@@ -516,7 +779,7 @@ tursoWriteTest("integration: Turso-backed L train arrivals auto-import static da
   expect(mta.static.getStop("L06")?.name).toBe("1 Av");
 });
 
-test("integration: service alerts do not require an MTA API key", async () => {
+liveMtaTest("integration: service alerts do not require an MTA API key", async () => {
   const mta = new MTA({
     staticData: {
       stops: staticData.stops,
@@ -530,7 +793,7 @@ test("integration: service alerts do not require an MTA API key", async () => {
   expect(Array.isArray(alerts)).toBe(true);
 });
 
-test("integration: bus arrivals require MTA_BUS_KEY for live BusTime", async () => {
+liveMtaTest("integration: bus arrivals require MTA_BUS_KEY for live BusTime", async () => {
   const busTimeKey = process.env.MTA_BUS_KEY;
   if (!busTimeKey) {
     const mta = new MTA();
@@ -564,7 +827,7 @@ test("integration: bus arrivals require MTA_BUS_KEY for live BusTime", async () 
   }
 });
 
-test("integration: bus vehicles require MTA_BUS_KEY for live BusTime", async () => {
+liveMtaTest("integration: bus vehicles require MTA_BUS_KEY for live BusTime", async () => {
   const busTimeKey = process.env.MTA_BUS_KEY;
   if (!busTimeKey) {
     const mta = new MTA();
@@ -597,7 +860,7 @@ test("integration: bus vehicles require MTA_BUS_KEY for live BusTime", async () 
   }
 });
 
-test("integration: bus vehicles supports M23 shorthand for M23-SBS", async () => {
+liveMtaTest("integration: bus vehicles supports M23 shorthand for M23-SBS", async () => {
   const busTimeKey = process.env.MTA_BUS_KEY;
   if (!busTimeKey) return;
 
@@ -628,6 +891,7 @@ fullGtfsTest(
     await mta.database.importStaticData({
       mode: "subway",
       sourceUrl: subwayGtfsUrl,
+      strategy: "schedule",
     });
 
     expect(mta.static.importSummary("subway")).toMatchObject({
@@ -656,6 +920,7 @@ fullGtfsTest(
     await mta.database.importStaticData({
       mode: "subway",
       sourceUrl: subwayGtfsUrl,
+      strategy: "schedule",
     });
 
     const nearby = await mta.stops.near({
@@ -741,10 +1006,16 @@ tursoFullGtfsTest(
       mode: "subway",
       sourceUrl: subwayGtfsUrl,
       seed: tursoSeed,
+      strategy: "schedule",
       rehydrate: false,
     });
 
-    expect(summary).toBeUndefined();
+    if (summary) {
+      expect(summary).toMatchObject({
+        mode: "subway",
+        sourceUrl: subwayGtfsUrl,
+      });
+    }
 
     const remote = createClient({ url: databaseUrl, authToken: databaseAuthToken });
     try {

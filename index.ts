@@ -6,7 +6,7 @@ import {
   pushRemoteDatabaseSchema,
   resolveSqliteDatabaseUrl,
 } from "./src/database-url";
-import { MissingBusTimeKeyError, UnknownRouteError, UnknownStopError } from "./src/errors";
+import { MissingBusTimeKeyError, StaticDataMissingError, UnknownRouteError, UnknownStopError } from "./src/errors";
 import { decodeFeedMessage, type GtfsRealtimeFeed, type TranslatedString } from "./src/gtfs-realtime";
 import { fetchArrayBuffer, fetchJson, urlWithParams } from "./src/http";
 import { directionFromStopId, GTFSCache, parseGtfsZip } from "./src/static-gtfs";
@@ -16,6 +16,7 @@ import type {
   Arrival,
   BusArrivalQuery,
   BusVehicleQuery,
+  DatabaseStatus,
   Direction,
   GtfsImportSummary,
   MTAEndpoints,
@@ -25,6 +26,7 @@ import type {
   StopsNearQuery,
   StaticGtfsSeed,
   StaticGtfsImportLimits,
+  StaticGtfsImportStrategy,
   TransitMode,
   Vehicle,
 } from "./src/types";
@@ -43,12 +45,15 @@ export class MTA {
   readonly endpoints: MTAEndpoints;
   readonly options: MTAOptions;
   private readonly readyPromise: Promise<void>;
+  private readonly realtimeCache = new Map<string, { expiresAt: number; feed: GtfsRealtimeFeed }>();
+  private readonly realtimeCacheTtlMs: number;
 
   constructor(options: MTAOptions = {}) {
     this.options = options;
     this.fetch = options.fetch ?? fetch;
     this.now = options.now ?? (() => new Date());
     this.busTimeKey = options.busTimeKey;
+    this.realtimeCacheTtlMs = options.realtimeCacheTtlMs ?? 15_000;
     this.endpoints = {
       ...defaultEndpoints,
       ...options.endpoints,
@@ -97,6 +102,18 @@ export class MTA {
     this.static.close();
     this.static = new GTFSCache(localDatabaseUrl, { createSchema: false });
   }
+
+  async realtimeFeed(url: string) {
+    const now = this.now().getTime();
+    const cached = this.realtimeCache.get(url);
+    if (cached && cached.expiresAt > now) return cached.feed;
+
+    const feed = decodeFeedMessage(await fetchArrayBuffer(this.fetch, url));
+    if (this.realtimeCacheTtlMs > 0) {
+      this.realtimeCache.set(url, { feed, expiresAt: now + this.realtimeCacheTtlMs });
+    }
+    return feed;
+  }
 }
 
 class DatabaseClient {
@@ -117,10 +134,16 @@ class DatabaseClient {
     return this.mta.static.hasStaticData(mode);
   }
 
+  async status(): Promise<DatabaseStatus> {
+    await this.mta.ready();
+    return this.mta.static.status();
+  }
+
   async importStaticData(input: {
     mode: TransitMode;
     seed?: StaticGtfsSeed;
     sourceUrl?: string;
+    strategy?: StaticGtfsImportStrategy;
     limits?: StaticGtfsImportLimits;
     rehydrate?: boolean;
   }): Promise<GtfsImportSummary | undefined> {
@@ -128,9 +151,11 @@ class DatabaseClient {
     const parsedSeed =
       input.seed ??
       (input.sourceUrl
-        ? parseGtfsZip(await fetchArrayBuffer(this.mta.fetch, input.sourceUrl))
+        ? parseGtfsZip(await readSourceArrayBuffer(this.mta.fetch, input.sourceUrl))
         : undefined);
-    const seed = parsedSeed ? applyImportLimits(parsedSeed, input.limits) : undefined;
+    const seed = parsedSeed
+      ? applyImportStrategy(applyImportLimits(parsedSeed, input.limits), input.strategy ?? "core")
+      : undefined;
     if (!seed) {
       throw new Error("importStaticData requires either seed or sourceUrl.");
     }
@@ -160,6 +185,7 @@ class DatabaseClient {
     mode: TransitMode;
     seed?: StaticGtfsSeed;
     sourceUrl?: string;
+    strategy?: StaticGtfsImportStrategy;
     limits?: StaticGtfsImportLimits;
   }): Promise<GtfsImportSummary | undefined> {
     await this.mta.ready();
@@ -184,10 +210,13 @@ class SubwayClient {
     const routeIds = query.route ? [normalizeRouteId(query.route)] : Object.keys(this.mta.endpoints.subwayFeeds);
     const feeds = [...new Set(routeIds.map((route) => this.feedForRoute(route)))];
     const stopIds = this.mta.static.getStopIdsForQuery(query.stopId);
+    if (this.mta.static.hasStaticData("subway") && !this.mta.static.getStopOrParent(query.stopId)) {
+      throw new UnknownStopError(query.stopId);
+    }
     const arrivals: Arrival[] = [];
 
     for (const feedUrl of feeds) {
-      const feed = decodeFeedMessage(await fetchArrayBuffer(this.mta.fetch, feedUrl));
+      const feed = await this.mta.realtimeFeed(feedUrl);
       arrivals.push(...this.arrivalsFromFeed(feed, stopIds, query));
     }
 
@@ -350,7 +379,7 @@ class AlertsClient {
 
   async current(query: AlertQuery = {}): Promise<Alert[]> {
     await this.mta.ready();
-    const feed = decodeFeedMessage(await fetchArrayBuffer(this.mta.fetch, this.mta.endpoints.alerts));
+    const feed = await this.mta.realtimeFeed(this.mta.endpoints.alerts);
     const alerts: Alert[] = [];
 
     for (const entity of feed.entity) {
@@ -391,7 +420,12 @@ class StopsClient {
   constructor(private readonly mta: MTA) {}
 
   near(query: StopsNearQuery): Promise<Stop[]> {
-    return this.mta.ready().then(() => this.mta.static.stopsNear(query));
+    return this.mta.ready().then(() => {
+      for (const mode of query.modes ?? []) {
+        if (!this.mta.static.hasStaticData(mode)) throw new StaticDataMissingError(mode);
+      }
+      return this.mta.static.stopsNear(query);
+    });
   }
 }
 
@@ -432,9 +466,29 @@ function routeFromLineRef(lineRef: string) {
 function normalizeBusRouteId(route: string) {
   const normalized = route.toUpperCase().trim();
   const aliases: Record<string, string> = {
+    M14A: "M14A-SBS",
+    M14D: "M14D-SBS",
+    M15: "M15-SBS",
     M23: "M23-SBS",
+    M34: "M34-SBS",
+    M34A: "M34A-SBS",
+    M60: "M60-SBS",
+    M79: "M79-SBS",
+    M86: "M86-SBS",
   };
   return aliases[normalized] ?? normalized;
+}
+
+async function readSourceArrayBuffer(fetchImpl: typeof fetch, sourceUrl: string) {
+  const path = localSourcePath(sourceUrl);
+  if (path) return Bun.file(path).arrayBuffer();
+  return fetchArrayBuffer(fetchImpl, sourceUrl);
+}
+
+function localSourcePath(sourceUrl: string) {
+  if (sourceUrl.startsWith("file:")) return decodeURIComponent(new URL(sourceUrl).pathname);
+  if (sourceUrl.startsWith("/") || sourceUrl.startsWith("./") || sourceUrl.startsWith("../")) return sourceUrl;
+  return undefined;
 }
 
 function stringOrUndefined(value: unknown) {
@@ -515,6 +569,17 @@ function applyImportLimits(seed: StaticGtfsSeed, limits: StaticGtfsImportLimits 
   };
 }
 
+function applyImportStrategy(seed: StaticGtfsSeed, strategy: StaticGtfsImportStrategy): StaticGtfsSeed {
+  if (strategy === "schedule") return seed;
+  return {
+    stops: seed.stops,
+    routes: seed.routes,
+    trips: [],
+    stopTimes: [],
+  };
+}
+
 export { decodeFeedMessage, encodeFeedMessage } from "./src/gtfs-realtime";
 export { GTFSCache } from "./src/static-gtfs";
+export * from "./src/errors";
 export type * from "./src/types";

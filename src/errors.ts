@@ -26,6 +26,14 @@ export class UnknownStopError extends MTAError {
   }
 }
 
+export class StaticDataMissingError extends MTAError {
+  override name = "StaticDataMissingError";
+
+  constructor(mode: string) {
+    super(`Static GTFS data for ${mode} is missing. Run mta.database.importStaticData or the db import CLI before using this lookup.`);
+  }
+}
+
 export class FeedError extends MTAError {
   override name = "FeedError";
 

@@ -10,6 +10,8 @@ import type {
   GtfsTripInput,
   Route,
   StaticGtfsSeed,
+  DatabaseStatus,
+  StaticDataStatus,
   Stop,
   StopsNearQuery,
   TransitMode,
@@ -98,6 +100,15 @@ export class GTFSCache {
     return Boolean(row?.count);
   }
 
+  status(): DatabaseStatus {
+    return {
+      subway: this.statusForMode("subway"),
+      bus: this.statusForMode("bus"),
+      lirr: this.statusForMode("lirr"),
+      "metro-north": this.statusForMode("metro-north"),
+    };
+  }
+
   importSummary(mode: TransitMode): GtfsImportSummary | undefined {
     const row = this.db
       .query<
@@ -122,6 +133,20 @@ export class GTFSCache {
       routeCount: row.route_count,
       tripCount: row.trip_count,
       stopTimeCount: row.stop_time_count,
+    };
+  }
+
+  private statusForMode(mode: TransitMode): StaticDataStatus {
+    const summary = this.importSummary(mode);
+    return {
+      mode,
+      ready: Boolean(summary),
+      importedAt: summary?.importedAt,
+      sourceUrl: summary?.sourceUrl,
+      stopCount: summary?.stopCount ?? 0,
+      routeCount: summary?.routeCount ?? 0,
+      tripCount: summary?.tripCount ?? 0,
+      stopTimeCount: summary?.stopTimeCount ?? 0,
     };
   }
 
