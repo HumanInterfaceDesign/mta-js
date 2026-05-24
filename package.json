@@ -20,7 +20,7 @@
   },
   "types": "./index.ts",
   "bin": {
-    "mta-js": "./src/cli.ts"
+    "mta-js": "src/cli.ts"
   },
   "scripts": {
     "test": "bun test",
