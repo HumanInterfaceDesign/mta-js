@@ -3,6 +3,8 @@ export type TransitMode = "subway" | "bus" | "lirr" | "metro-north";
 export type Direction = "north" | "south" | "east" | "west" | "unknown";
 
 export interface MTAOptions {
+  apiKey?: string;
+  apiBaseUrl?: string;
   busTimeKey?: string;
   databaseUrl?: string;
   databaseAuthToken?: string;
@@ -118,6 +120,14 @@ export interface Stop {
   mode?: TransitMode;
 }
 
+export type NearbyStop = Stop & {
+  distanceMeters?: number;
+  servedRoutes?: Route[];
+  routeMatch?: boolean;
+  routeHeadsigns?: string[];
+  note?: string;
+};
+
 export interface Arrival {
   mode: TransitMode;
   route: Route;
@@ -196,6 +206,8 @@ export interface StopsNearQuery {
   lat: number;
   lon: number;
   modes?: TransitMode[];
+  route?: string;
+  includeRoutes?: boolean;
   radiusMeters?: number;
   limit?: number;
 }

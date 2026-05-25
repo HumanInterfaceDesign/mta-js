@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { createClient } from "@libsql/client";
 import { strToU8, zipSync } from "fflate";
 import { MTA, GTFSCache, StaticDataMissingError, UnknownStopError, encodeFeedMessage } from "./index";
+import type { Arrival } from "./index";
 import { isLibsqlDatabaseUrl, isRemoteDatabaseUrl } from "./src/database-url";
 
 const staticData = {
@@ -101,6 +102,10 @@ function tempPath(name: string) {
   const tmp = process.env.TMPDIR ?? "/tmp";
   const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return `${tmp.replace(/\/$/, "")}/mta-js-${name}-${id}`;
+}
+
+function requestFromFetchArgs(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
+  return input instanceof Request ? new Request(input, init) : new Request(String(input), init);
 }
 
 afterEach(() => {
@@ -411,6 +416,111 @@ test("database.status reports missing and ready modes", async () => {
     tripCount: 1,
     stopTimeCount: 1,
   });
+});
+
+test("apiKey routes client methods through the hosted API", async () => {
+  const requests: Request[] = [];
+  const hostedArrival: Arrival = {
+    mode: "subway",
+    route: { id: "A", shortName: "A" },
+    stop: { id: "A27", name: "Jay St-MetroTech" },
+    direction: "north",
+    arrivalTime: "2023-11-14T22:18:20.000Z",
+    minutes: 5,
+    realtime: true,
+    source: "mta-gtfs-rt",
+  };
+  const mta = new MTA({
+    apiKey: "hosted-key",
+    apiBaseUrl: "https://hosted.example",
+    fetch: (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const request = requestFromFetchArgs(input, init);
+      requests.push(request);
+      return Response.json([hostedArrival]);
+    }) as typeof fetch,
+  });
+  openClients.push(mta);
+
+  const arrivals = await mta.subway.arrivals({
+    stopId: "A27",
+    route: "A",
+    limit: 5,
+    includeRaw: true,
+  });
+
+  expect(arrivals).toEqual([hostedArrival]);
+  expect(requests).toHaveLength(1);
+  const request = requests[0]!;
+  const url = new URL(request.url);
+  expect(url.origin).toBe("https://hosted.example");
+  expect(url.pathname).toBe("/api/v1/subway/arrivals");
+  expect(url.searchParams.get("stopId")).toBe("A27");
+  expect(url.searchParams.get("route")).toBe("A");
+  expect(url.searchParams.get("limit")).toBe("5");
+  expect(url.searchParams.get("includeRaw")).toBe("true");
+  expect(request.headers.get("authorization")).toBe("Bearer hosted-key");
+  expect(request.headers.get("x-api-key")).toBe("hosted-key");
+});
+
+test("apiKey lets hosted bus methods run without a BusTime key", async () => {
+  const requestedUrls: string[] = [];
+  const mta = new MTA({
+    apiKey: "hosted-key",
+    apiBaseUrl: "https://hosted.example",
+    fetch: (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const request = requestFromFetchArgs(input, init);
+      requestedUrls.push(request.url);
+      return Response.json([]);
+    }) as typeof fetch,
+  });
+  openClients.push(mta);
+
+  await mta.bus.arrivals({ stopId: "308214", route: "M23" });
+  await mta.bus.vehicles({ route: "M23" });
+
+  expect(requestedUrls.map((url) => new URL(url).pathname)).toEqual([
+    "/api/v1/bus/arrivals",
+    "/api/v1/bus/vehicles",
+  ]);
+});
+
+test("hosted stops.near serializes mode arrays for the API", async () => {
+  let requestedUrl = "";
+  const mta = new MTA({
+    apiKey: "hosted-key",
+    apiBaseUrl: "https://hosted.example",
+    fetch: (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      const request = requestFromFetchArgs(input, init);
+      requestedUrl = request.url;
+      return Response.json([
+        {
+          id: "L06",
+          name: "1 Av",
+          lat: 40.730953,
+          lon: -73.981628,
+          mode: "subway",
+          distanceMeters: 12,
+          routeMatch: true,
+        },
+      ]);
+    }) as typeof fetch,
+  });
+  openClients.push(mta);
+
+  const stops = await mta.stops.near({
+    lat: 40.730953,
+    lon: -73.981628,
+    modes: ["subway", "bus"],
+    route: "L",
+    includeRoutes: true,
+  });
+
+  expect(stops[0]).toMatchObject({ id: "L06", distanceMeters: 12, routeMatch: true });
+  const url = new URL(requestedUrl);
+  expect(url.pathname).toBe("/api/v1/stops/near");
+  expect(url.searchParams.get("modes")).toBe("subway,bus");
+  expect(url.searchParams.get("route")).toBe("L");
+  expect(url.searchParams.get("includeRoutes")).toBe("true");
 });
 
 test("static import strategy core avoids schedule rows", async () => {

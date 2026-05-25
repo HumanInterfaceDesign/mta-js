@@ -21,6 +21,7 @@ import type {
   GtfsImportSummary,
   MTAEndpoints,
   MTAOptions,
+  NearbyStop,
   Route,
   Stop,
   StopsNearQuery,
@@ -41,6 +42,8 @@ export class MTA {
 
   readonly fetch: typeof fetch;
   readonly now: () => Date;
+  readonly apiKey?: string;
+  readonly apiBaseUrl: string;
   readonly busTimeKey?: string;
   readonly endpoints: MTAEndpoints;
   readonly options: MTAOptions;
@@ -52,6 +55,8 @@ export class MTA {
     this.options = options;
     this.fetch = options.fetch ?? fetch;
     this.now = options.now ?? (() => new Date());
+    this.apiKey = options.apiKey;
+    this.apiBaseUrl = options.apiBaseUrl ?? "https://www.mtaapi.dev";
     this.busTimeKey = options.busTimeKey;
     this.realtimeCacheTtlMs = options.realtimeCacheTtlMs ?? 15_000;
     this.endpoints = {
@@ -114,6 +119,28 @@ export class MTA {
     }
     return feed;
   }
+
+  hostedApiEnabled() {
+    return Boolean(this.apiKey);
+  }
+
+  async hostedJson<T>(path: string, query: object = {}): Promise<T> {
+    if (!this.apiKey) {
+      throw new Error("mta-js hosted API calls require an apiKey.");
+    }
+
+    const url = urlWithParams(
+      new URL(path, this.apiBaseUrl).toString(),
+      serializeHostedQuery(query),
+    );
+
+    return fetchJson(this.fetch, url, {
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "x-api-key": this.apiKey,
+      },
+    }) as Promise<T>;
+  }
 }
 
 class DatabaseClient {
@@ -135,6 +162,10 @@ class DatabaseClient {
   }
 
   async status(): Promise<DatabaseStatus> {
+    if (this.mta.hostedApiEnabled()) {
+      return this.mta.hostedJson<DatabaseStatus>("/api/v1/database/status");
+    }
+
     await this.mta.ready();
     return this.mta.static.status();
   }
@@ -206,6 +237,10 @@ class SubwayClient {
     limit?: number;
     includeRaw?: boolean;
   }): Promise<Arrival[]> {
+    if (this.mta.hostedApiEnabled()) {
+      return this.mta.hostedJson<Arrival[]>("/api/v1/subway/arrivals", query);
+    }
+
     await this.mta.ready();
     const routeIds = query.route ? [normalizeRouteId(query.route)] : Object.keys(this.mta.endpoints.subwayFeeds);
     const feeds = [...new Set(routeIds.map((route) => this.feedForRoute(route)))];
@@ -288,6 +323,10 @@ class BusClient {
   constructor(private readonly mta: MTA) {}
 
   async arrivals(query: BusArrivalQuery): Promise<Arrival[]> {
+    if (this.mta.hostedApiEnabled()) {
+      return this.mta.hostedJson<Arrival[]>("/api/v1/bus/arrivals", query);
+    }
+
     await this.mta.ready();
     const key = this.requireKey();
     const body = await fetchJson(
@@ -332,6 +371,10 @@ class BusClient {
   }
 
   async vehicles(query: BusVehicleQuery = {}): Promise<Vehicle[]> {
+    if (this.mta.hostedApiEnabled()) {
+      return this.mta.hostedJson<Vehicle[]>("/api/v1/bus/vehicles", query);
+    }
+
     await this.mta.ready();
     const key = this.requireKey();
     const body = await fetchJson(
@@ -378,6 +421,10 @@ class AlertsClient {
   constructor(private readonly mta: MTA) {}
 
   async current(query: AlertQuery = {}): Promise<Alert[]> {
+    if (this.mta.hostedApiEnabled()) {
+      return this.mta.hostedJson<Alert[]>("/api/v1/alerts", query);
+    }
+
     await this.mta.ready();
     const feed = await this.mta.realtimeFeed(this.mta.endpoints.alerts);
     const alerts: Alert[] = [];
@@ -419,7 +466,11 @@ class AlertsClient {
 class StopsClient {
   constructor(private readonly mta: MTA) {}
 
-  near(query: StopsNearQuery): Promise<Stop[]> {
+  near(query: StopsNearQuery): Promise<NearbyStop[]> {
+    if (this.mta.hostedApiEnabled()) {
+      return this.mta.hostedJson<NearbyStop[]>("/api/v1/stops/near", query);
+    }
+
     return this.mta.ready().then(() => {
       for (const mode of query.modes ?? []) {
         if (!this.mta.static.hasStaticData(mode)) throw new StaticDataMissingError(mode);
@@ -427,6 +478,26 @@ class StopsClient {
       return this.mta.static.stopsNear(query);
     });
   }
+}
+
+function serializeHostedQuery(query: object) {
+  const params: Record<string, string | number | boolean | undefined> = {};
+  for (const [key, value] of Object.entries(query)) {
+    if (
+      value === undefined ||
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    ) {
+      params[key] = value;
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      params[key] = value.join(",");
+    }
+  }
+  return params;
 }
 
 function normalizeRouteId(route: string) {

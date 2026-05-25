@@ -16,6 +16,41 @@ await mta.alerts.current({ mode: "subway" });
 await mta.stops.near({ lat, lon, modes: ["subway", "bus"] });
 ```
 
+## Hosted API
+
+Pass an `apiKey` to use the hosted MTA API instead of calling MTA feeds and local
+static GTFS directly. The public method names stay the same, but requests are sent
+to `https://www.mtaapi.dev/api/v1` with the key attached.
+
+```ts
+import { MTA } from "mta-js";
+
+const mta = new MTA({
+  apiKey: process.env.MTA_API_KEY,
+});
+
+await mta.subway.arrivals({ stopId: "A27", route: "A" });
+await mta.bus.arrivals({ stopId: "308214", route: "M23" });
+await mta.bus.vehicles({ route: "M23", limit: 5 });
+await mta.alerts.current({ mode: "subway" });
+await mta.stops.near({
+  lat: 40.7356,
+  lon: -73.9804,
+  modes: ["subway", "bus"],
+  route: "M23",
+  includeRoutes: true,
+});
+```
+
+Use `apiBaseUrl` to point at a preview, staging, or self-hosted compatible API:
+
+```ts
+const mta = new MTA({
+  apiKey: process.env.MTA_API_KEY,
+  apiBaseUrl: "https://staging.example.com",
+});
+```
+
 ## Database
 
 Realtime feeds only become useful after they are joined back to static GTFS stops, routes, and trips. Today, `databaseUrl` points to a SQLite database used by `bun:sqlite`.
