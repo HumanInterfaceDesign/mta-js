@@ -350,6 +350,14 @@ mta.static.importSeed(
 );
 ```
 
+## Roadmap
+
+- Expand the package beyond NYC MTA into a normalized US metro SDK while keeping the existing MTA API stable.
+- Prioritize large systems with documented APIs and realtime data first: MBTA (Boston), WMATA (DC), CTA (Chicago), and BART (Bay Area).
+- Add adapters for mid-tier systems that expose GTFS, GTFS Realtime, or partial APIs, including SEPTA, LA Metro, and MARTA.
+- Model agency-specific quirks behind shared concepts like arrivals, vehicles, service alerts, route-aware nearby stops, static GTFS import, and hosted API access.
+- Track smaller agencies separately because support quality varies: some only publish static GTFS, some have buried realtime feeds, and some have no public API surface.
+
 ## Development
 
 ```sh
