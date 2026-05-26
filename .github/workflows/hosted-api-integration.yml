@@ -1,0 +1,21 @@
+name: Hosted API integration
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  hosted-api-smoke:
+    runs-on: ubuntu-latest
+    env:
+      MTA_API_KEY: ${{ secrets.MTA_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - run: bun test hosted-api.integration.test.ts
