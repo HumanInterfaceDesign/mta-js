@@ -1,40 +1,27 @@
 import { defaultEndpoints, subwayRouteColors } from "./src/defaults";
-import {
-  hydrateRemoteDatabaseUrl,
-  importRemoteStaticSeed,
-  isRemoteDatabaseUrl,
-  pushRemoteDatabaseSchema,
-  resolveSqliteDatabaseUrl,
-} from "./src/database-url";
 import { MissingBusTimeKeyError, StaticDataMissingError, UnknownRouteError, UnknownStopError } from "./src/errors";
 import { decodeFeedMessage, type GtfsRealtimeFeed, type TranslatedString } from "./src/gtfs-realtime";
 import { fetchArrayBuffer, fetchJson, urlWithParams } from "./src/http";
-import { directionFromStopId, GTFSCache, parseGtfsZip } from "./src/static-gtfs";
+import { directionFromStopId, GTFSCache } from "./src/static-gtfs";
 import type {
   Alert,
   AlertQuery,
   Arrival,
   BusArrivalQuery,
   BusVehicleQuery,
-  DatabaseStatus,
   Direction,
-  GtfsImportSummary,
   MTAEndpoints,
   MTAOptions,
   NearbyStop,
   Route,
   Stop,
   StopsNearQuery,
-  StaticGtfsSeed,
-  StaticGtfsImportLimits,
-  StaticGtfsImportStrategy,
   TransitMode,
   Vehicle,
 } from "./src/types";
 
 export class MTA {
   static: GTFSCache;
-  readonly database: DatabaseClient;
   readonly subway: SubwayClient;
   readonly bus: BusClient;
   readonly alerts: AlertsClient;
@@ -47,7 +34,6 @@ export class MTA {
   readonly busTimeKey?: string;
   readonly endpoints: MTAEndpoints;
   readonly options: MTAOptions;
-  private readonly readyPromise: Promise<void>;
   private readonly realtimeCache = new Map<string, { expiresAt: number; feed: GtfsRealtimeFeed }>();
   private readonly realtimeCacheTtlMs: number;
 
@@ -67,10 +53,8 @@ export class MTA {
         ...options.endpoints?.subwayFeeds,
       },
     };
-    this.static = new GTFSCache(resolveSqliteDatabaseUrl(options.databaseUrl));
-    this.readyPromise = this.initializeDatabase(options);
+    this.static = new GTFSCache(options.staticData, options.staticDataMode ?? "subway");
 
-    this.database = new DatabaseClient(this);
     this.subway = new SubwayClient(this);
     this.bus = new BusClient(this);
     this.alerts = new AlertsClient(this);
@@ -78,34 +62,11 @@ export class MTA {
   }
 
   async ready() {
-    await this.readyPromise;
     return this;
   }
 
   close() {
     this.static.close();
-  }
-
-  private async initializeDatabase(options: MTAOptions) {
-    if (options.databaseUrl && isRemoteDatabaseUrl(options.databaseUrl)) {
-      await this.rehydrateRemoteDatabase();
-    }
-
-    if (options.staticData) this.static.importSeed(options.staticData);
-  }
-
-  async rehydrateRemoteDatabase() {
-    const localDatabaseUrl = await retryOnWalConflict(() =>
-      hydrateRemoteDatabaseUrl({
-        databaseUrl: this.options.databaseUrl,
-        databaseAuthToken: this.options.databaseAuthToken,
-        databaseLocalPath: this.options.databaseLocalPath,
-        fetch: this.fetch,
-        refresh: true,
-      }),
-    );
-    this.static.close();
-    this.static = new GTFSCache(localDatabaseUrl, { createSchema: false });
   }
 
   async realtimeFeed(url: string) {
@@ -140,90 +101,6 @@ export class MTA {
         "x-api-key": this.apiKey,
       },
     }) as Promise<T>;
-  }
-}
-
-class DatabaseClient {
-  constructor(private readonly mta: MTA) {}
-
-  async push() {
-    await this.mta.ready();
-    this.mta.static.pushSchema();
-    const result = await pushRemoteDatabaseSchema({
-      databaseUrl: this.mta.options.databaseUrl,
-      databaseAuthToken: this.mta.options.databaseAuthToken,
-    });
-    return result;
-  }
-
-  async hasStaticData(mode: TransitMode) {
-    await this.mta.ready();
-    return this.mta.static.hasStaticData(mode);
-  }
-
-  async status(): Promise<DatabaseStatus> {
-    if (this.mta.hostedApiEnabled()) {
-      return this.mta.hostedJson<DatabaseStatus>("/api/v1/database/status");
-    }
-
-    await this.mta.ready();
-    return this.mta.static.status();
-  }
-
-  async importStaticData(input: {
-    mode: TransitMode;
-    seed?: StaticGtfsSeed;
-    sourceUrl?: string;
-    strategy?: StaticGtfsImportStrategy;
-    limits?: StaticGtfsImportLimits;
-    rehydrate?: boolean;
-  }): Promise<GtfsImportSummary | undefined> {
-    await this.mta.ready();
-    const parsedSeed =
-      input.seed ??
-      (input.sourceUrl
-        ? parseGtfsZip(await readSourceArrayBuffer(this.mta.fetch, input.sourceUrl))
-        : undefined);
-    const seed = parsedSeed
-      ? applyImportStrategy(applyImportLimits(parsedSeed, input.limits), input.strategy ?? "core")
-      : undefined;
-    if (!seed) {
-      throw new Error("importStaticData requires either seed or sourceUrl.");
-    }
-    const result = await importRemoteStaticSeed({
-      databaseUrl: this.mta.options.databaseUrl,
-      databaseAuthToken: this.mta.options.databaseAuthToken,
-      mode: input.mode,
-      seed,
-      sourceUrl: input.sourceUrl,
-    });
-
-    if (result.remote && input.rehydrate !== false) {
-      await this.mta.rehydrateRemoteDatabase();
-    } else {
-      this.mta.static.importSeed(seed, input.mode);
-      if (input.sourceUrl) {
-        this.mta.static.db
-          .query("update gtfs_imports set source_url = ?1 where mode = ?2")
-          .run(input.sourceUrl, input.mode);
-      }
-    }
-
-    return this.mta.static.importSummary(input.mode);
-  }
-
-  async ensureStaticData(input: {
-    mode: TransitMode;
-    seed?: StaticGtfsSeed;
-    sourceUrl?: string;
-    strategy?: StaticGtfsImportStrategy;
-    limits?: StaticGtfsImportLimits;
-  }): Promise<GtfsImportSummary | undefined> {
-    await this.mta.ready();
-    if (this.mta.static.hasStaticData(input.mode)) {
-      return this.mta.static.importSummary(input.mode);
-    }
-    return this.importStaticData(input);
   }
 }
 
@@ -472,9 +349,7 @@ class StopsClient {
     }
 
     return this.mta.ready().then(() => {
-      for (const mode of query.modes ?? []) {
-        if (!this.mta.static.hasStaticData(mode)) throw new StaticDataMissingError(mode);
-      }
+      if (!this.mta.static.hasStopData()) throw new StaticDataMissingError(query.modes?.[0] ?? "requested modes");
       return this.mta.static.stopsNear(query);
     });
   }
@@ -550,18 +425,6 @@ function normalizeBusRouteId(route: string) {
   return aliases[normalized] ?? normalized;
 }
 
-async function readSourceArrayBuffer(fetchImpl: typeof fetch, sourceUrl: string) {
-  const path = localSourcePath(sourceUrl);
-  if (path) return Bun.file(path).arrayBuffer();
-  return fetchArrayBuffer(fetchImpl, sourceUrl);
-}
-
-function localSourcePath(sourceUrl: string) {
-  if (sourceUrl.startsWith("file:")) return decodeURIComponent(new URL(sourceUrl).pathname);
-  if (sourceUrl.startsWith("/") || sourceUrl.startsWith("./") || sourceUrl.startsWith("../")) return sourceUrl;
-  return undefined;
-}
-
 function stringOrUndefined(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
@@ -613,41 +476,6 @@ function alertMatchesMode(
   informed: { routeType?: number }[],
 ) {
   return inferAlertMode(routes, stops, informed) === mode;
-}
-
-async function retryOnWalConflict<T>(operation: () => Promise<T>) {
-  let lastError: unknown;
-  for (const delay of [0, 150, 400, 900]) {
-    if (delay) await Bun.sleep(delay);
-    try {
-      return await operation();
-    } catch (error) {
-      lastError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("WalConflict")) throw error;
-    }
-  }
-  throw lastError;
-}
-
-function applyImportLimits(seed: StaticGtfsSeed, limits: StaticGtfsImportLimits | undefined): StaticGtfsSeed {
-  if (!limits) return seed;
-  return {
-    stops: limits.stops === undefined ? seed.stops : seed.stops?.slice(0, limits.stops),
-    routes: limits.routes === undefined ? seed.routes : seed.routes?.slice(0, limits.routes),
-    trips: limits.trips === undefined ? seed.trips : seed.trips?.slice(0, limits.trips),
-    stopTimes: limits.stopTimes === undefined ? seed.stopTimes : seed.stopTimes?.slice(0, limits.stopTimes),
-  };
-}
-
-function applyImportStrategy(seed: StaticGtfsSeed, strategy: StaticGtfsImportStrategy): StaticGtfsSeed {
-  if (strategy === "schedule") return seed;
-  return {
-    stops: seed.stops,
-    routes: seed.routes,
-    trips: [],
-    stopTimes: [],
-  };
 }
 
 export { decodeFeedMessage, encodeFeedMessage } from "./src/gtfs-realtime";
