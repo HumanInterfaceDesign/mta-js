@@ -1,3 +1,23 @@
+import type {
+  KnownBusRoute,
+  KnownBusStopId,
+  KnownRoute,
+  KnownStopId,
+  KnownSubwayRoute,
+  KnownSubwayStopId,
+} from "./generated";
+
+export type AutocompleteString<TKnown extends string> =
+  | TKnown
+  | (string & {});
+
+export type RouteId = AutocompleteString<KnownRoute>;
+export type SubwayRoute = AutocompleteString<KnownSubwayRoute>;
+export type BusRoute = AutocompleteString<KnownBusRoute>;
+export type StopId = AutocompleteString<KnownStopId>;
+export type SubwayStopId = AutocompleteString<KnownSubwayStopId>;
+export type BusStopId = AutocompleteString<KnownBusStopId>;
+
 export type TransitMode = "subway" | "bus" | "lirr" | "metro-north";
 
 export type Direction = "north" | "south" | "east" | "west" | "unknown";
@@ -171,22 +191,22 @@ export interface Alert {
 }
 
 export interface SubwayArrivalQuery {
-  stopId: string;
-  route?: string;
+  stopId: SubwayStopId;
+  route?: SubwayRoute;
   direction?: Direction | "uptown" | "downtown";
   limit?: number;
   includeRaw?: boolean;
 }
 
 export interface BusArrivalQuery {
-  stopId: string;
-  route?: string;
+  stopId: BusStopId;
+  route?: BusRoute;
   limit?: number;
   includeRaw?: boolean;
 }
 
 export interface BusVehicleQuery {
-  route?: string;
+  route?: BusRoute;
   vehicleId?: string;
   limit?: number;
   includeRaw?: boolean;
@@ -194,8 +214,8 @@ export interface BusVehicleQuery {
 
 export interface AlertQuery {
   mode?: TransitMode;
-  route?: string;
-  stopId?: string;
+  route?: RouteId;
+  stopId?: StopId;
   includeRaw?: boolean;
 }
 
@@ -203,7 +223,7 @@ export interface StopsNearQuery {
   lat: number;
   lon: number;
   modes?: TransitMode[];
-  route?: string;
+  route?: RouteId;
   includeRoutes?: boolean;
   radiusMeters?: number;
   limit?: number;

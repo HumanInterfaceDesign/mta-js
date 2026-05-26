@@ -77,6 +77,10 @@ For production static stop search, prefer the hosted API. It serves a compact
 Blob-backed snapshot instead of requiring each SDK consumer to manage GTFS
 imports.
 
+Route and stop inputs include generated autocomplete for known MTA values while
+remaining permissive for future route and stop additions. Refresh the generated
+types from the hosted stops snapshot with `bun run generate:types`.
+
 ## Endpoints
 
 - `mta.subway.arrivals(...)`
