@@ -6,13 +6,11 @@ export interface MTAOptions {
   apiKey?: string;
   apiBaseUrl?: string;
   busTimeKey?: string;
-  databaseUrl?: string;
-  databaseAuthToken?: string;
-  databaseLocalPath?: string;
   realtimeCacheTtlMs?: number;
   fetch?: typeof fetch;
   now?: () => Date;
   staticData?: StaticGtfsSeed;
+  staticDataMode?: TransitMode;
   endpoints?: Partial<MTAEndpoints>;
 }
 
@@ -52,7 +50,6 @@ export type StaticGtfsImportStrategy = "core" | "schedule";
 export interface StaticGtfsImportOptions {
   strategy?: StaticGtfsImportStrategy;
   limits?: StaticGtfsImportLimits;
-  rehydrate?: boolean;
 }
 
 export interface StaticDataStatus {

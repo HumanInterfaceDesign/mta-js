@@ -1,7 +1,7 @@
 {
   "name": "mta-js",
-  "version": "1.0.1",
-  "description": "A TypeScript client for MTA realtime and static GTFS data.",
+  "version": "2.0.0",
+  "description": "A TypeScript client for MTA realtime feeds and the hosted MTA API.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -19,13 +19,9 @@
     ".": "./index.ts"
   },
   "types": "./index.ts",
-  "bin": {
-    "mta-js": "src/cli.ts"
-  },
   "scripts": {
     "test": "bun test",
-    "typecheck": "bunx tsc --noEmit",
-    "db:push": "bun src/cli.ts db push"
+    "typecheck": "bunx tsc --noEmit"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -34,7 +30,6 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@libsql/client": "^0.17.3",
     "csv-parse": "^6.2.1",
     "fflate": "^0.8.2",
     "protobufjs": "^8.0.3"
