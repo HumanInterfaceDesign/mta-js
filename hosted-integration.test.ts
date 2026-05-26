@@ -3,7 +3,7 @@ import { MTA } from "./index";
 
 const apiKey = process.env.MTA_API_KEY;
 
-describe.skipIf(!apiKey)("hosted API consumer smoke", () => {
+describe.skipIf(!apiKey)("hosted integration tests", () => {
   test("runs the docs quickstart against the hosted API", async () => {
     const mta = new MTA({
       apiKey,

@@ -1,11 +1,11 @@
-name: Hosted API integration
+name: Hosted integration tests
 
 on:
   pull_request:
   workflow_dispatch:
 
 jobs:
-  hosted-api-smoke:
+  hosted-integration-tests:
     runs-on: ubuntu-latest
     env:
       MTA_API_KEY: ${{ secrets.MTA_API_KEY }}
@@ -18,4 +18,4 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - run: bun test hosted-api.integration.test.ts
+      - run: bun test hosted-integration.test.ts
