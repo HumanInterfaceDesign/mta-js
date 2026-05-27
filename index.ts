@@ -16,6 +16,7 @@ import type {
   Route,
   Stop,
   StopsNearQuery,
+  SubwayArrivalQuery,
   TransitMode,
   Vehicle,
 } from "./src/types";
@@ -107,13 +108,7 @@ export class MTA {
 class SubwayClient {
   constructor(private readonly mta: MTA) {}
 
-  async arrivals(query: {
-    stopId: string;
-    route?: string;
-    direction?: Direction | "uptown" | "downtown";
-    limit?: number;
-    includeRaw?: boolean;
-  }): Promise<Arrival[]> {
+  async arrivals(query: SubwayArrivalQuery): Promise<Arrival[]> {
     if (this.mta.hostedApiEnabled()) {
       return this.mta.hostedJson<Arrival[]>("/api/v1/subway/arrivals", query);
     }
@@ -146,7 +141,7 @@ class SubwayClient {
   private arrivalsFromFeed(
     feed: GtfsRealtimeFeed,
     stopIds: Set<string>,
-    query: { stopId: string; route?: string; direction?: Direction | "uptown" | "downtown"; includeRaw?: boolean },
+    query: SubwayArrivalQuery,
   ) {
     const arrivals: Arrival[] = [];
     const wantedDirection = normalizeDirection(query.direction);
@@ -481,4 +476,5 @@ function alertMatchesMode(
 export { decodeFeedMessage, encodeFeedMessage } from "./src/gtfs-realtime";
 export { GTFSCache } from "./src/static-gtfs";
 export * from "./src/errors";
+export type * from "./src/generated";
 export type * from "./src/types";

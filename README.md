@@ -77,6 +77,14 @@ For production static stop search, prefer the hosted API. It serves a compact
 Blob-backed snapshot instead of requiring each SDK consumer to manage GTFS
 imports.
 
+Route and stop inputs include generated autocomplete for known MTA values while
+remaining permissive for future route and stop additions. Refresh the generated
+types from the hosted stops snapshot by setting `MTA_STOPS_SNAPSHOT_URL` or
+`NEXT_PUBLIC_MTA_STOPS_SNAPSHOT_URL` and running `bun run generate:types`. Bus
+route autocomplete is generated from public MTA borough GTFS route files by
+default; set `MTA_BUS_GTFS_URLS` to a comma-separated list of GTFS zip URLs to
+override them.
+
 ## Endpoints
 
 - `mta.subway.arrivals(...)`

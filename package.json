@@ -10,6 +10,7 @@
   "files": [
     "index.ts",
     "src",
+    "scripts",
     "examples",
     "README.md"
   ],
@@ -20,6 +21,7 @@
   },
   "types": "./index.ts",
   "scripts": {
+    "generate:types": "bun scripts/generate-known-types.ts",
     "test": "bun test",
     "typecheck": "bunx tsc --noEmit"
   },
