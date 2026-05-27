@@ -28,8 +28,9 @@ const lTrain = await mta.subway.arrivals({
 });
 ```
 
-Arrival rows include display-oriented fields when destination metadata is
-available:
+Arrival rows may include display-oriented fields. `destination` depends on
+destination metadata, while `displayDirection` may still be present as a
+generic fallback label:
 
 ```ts
 for (const arrival of lTrain) {
