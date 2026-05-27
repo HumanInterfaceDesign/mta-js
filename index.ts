@@ -17,6 +17,8 @@ import type {
   Stop,
   StopsNearQuery,
   SubwayArrivalQuery,
+  SubwayDirectionQuery,
+  SubwayDirectionResolution,
   TransitMode,
   Vehicle,
 } from "./src/types";
@@ -131,6 +133,10 @@ class SubwayClient {
     return arrivals
       .sort((a, b) => Date.parse(a.arrivalTime) - Date.parse(b.arrivalTime))
       .slice(0, query.limit ?? 20);
+  }
+
+  direction(query: SubwayDirectionQuery): Promise<SubwayDirectionResolution> {
+    return this.mta.hostedJson<SubwayDirectionResolution>("/api/v1/subway/direction", query);
   }
 
   private feedForRoute(route: string) {

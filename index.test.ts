@@ -137,6 +137,59 @@ test("hosted subway arrivals infer L route and normalize east aliases before req
   expect(url.searchParams.get("direction")).toBe("south");
 });
 
+test("hosted subway direction calls resolve intermediate destinations through the API", async () => {
+  let request: Request | undefined;
+  const mta = new MTA({
+    apiKey: "test-key",
+    apiBaseUrl: "https://api.example.com",
+    fetch: (async (input, init) => {
+      request = input instanceof Request ? new Request(input, init) : new Request(String(input), init);
+      return Response.json({
+        route: { id: "L", shortName: "L" },
+        destination: "Union Sq",
+        normalizedDestination: "union sq",
+        resolved: true,
+        direction: "north",
+        displayDirection: "toward 8 Av",
+        terminal: "8 Av",
+        fromStop: {
+          id: "L06",
+          name: "1 Av",
+          displayName: "1 Av",
+          parentId: "L06",
+        },
+        destinationStop: {
+          id: "L03",
+          name: "14 St-Union Sq",
+          displayName: "14 St-Union Sq",
+          parentId: "L03",
+        },
+      });
+    }) as typeof fetch,
+  });
+
+  const resolution = await mta.subway.direction({
+    route: "L",
+    fromStopId: "L06",
+    destination: "Union Sq",
+  });
+
+  const url = new URL(request?.url ?? "");
+  expect(url.pathname).toBe("/api/v1/subway/direction");
+  expect(url.searchParams.get("route")).toBe("L");
+  expect(url.searchParams.get("fromStopId")).toBe("L06");
+  expect(url.searchParams.get("destination")).toBe("Union Sq");
+  expect(resolution).toMatchObject({
+    resolved: true,
+    direction: "north",
+    displayDirection: "toward 8 Av",
+    fromStop: {
+      displayName: "1 Av",
+      parentId: "L06",
+    },
+  });
+});
+
 test("subway arrivals decode GTFS realtime and join in-memory static metadata", async () => {
   const feed = encodeFeedMessage({
     header: { gtfsRealtimeVersion: "2.0", timestamp: 1_700_000_000 },

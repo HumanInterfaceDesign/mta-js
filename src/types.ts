@@ -21,6 +21,9 @@ export type BusStopId = AutocompleteString<KnownBusStopId>;
 export type TransitMode = "subway" | "bus" | "lirr" | "metro-north";
 
 export type Direction = "north" | "south" | "east" | "west" | "unknown";
+export type SubwayResolvedDirection = "north" | "south";
+
+export type DirectionHeadsigns = Record<string, string[]>;
 
 export interface MTAOptions {
   apiKey?: string;
@@ -131,17 +134,26 @@ export interface Route {
 export interface Stop {
   id: string;
   name: string;
+  displayName?: string;
   lat?: number;
   lon?: number;
   parentStation?: string;
+  parentId?: string;
   mode?: TransitMode;
 }
 
+export type ServedRoute = Route & {
+  headsigns?: string[];
+  directionHeadsigns?: DirectionHeadsigns;
+  directions?: number[];
+};
+
 export type NearbyStop = Stop & {
   distanceMeters?: number;
-  servedRoutes?: Route[];
+  servedRoutes?: ServedRoute[];
   routeMatch?: boolean;
   routeHeadsigns?: string[];
+  directionHeadsigns?: DirectionHeadsigns;
   note?: string;
 };
 
@@ -198,6 +210,26 @@ export interface SubwayArrivalQuery {
   direction?: Direction | "uptown" | "downtown";
   limit?: number;
   includeRaw?: boolean;
+}
+
+export interface SubwayDirectionQuery {
+  route: SubwayRoute;
+  fromStopId: SubwayStopId;
+  destination: string;
+}
+
+export interface SubwayDirectionResolution {
+  route: Route;
+  destination: string;
+  normalizedDestination: string;
+  resolved: boolean;
+  direction?: SubwayResolvedDirection;
+  displayDirection?: string;
+  terminal?: string;
+  fromStop?: Stop;
+  destinationStop?: Stop;
+  matches?: Stop[];
+  reason?: string;
 }
 
 export interface BusArrivalQuery {
