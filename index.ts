@@ -109,22 +109,23 @@ class SubwayClient {
   constructor(private readonly mta: MTA) {}
 
   async arrivals(query: SubwayArrivalQuery): Promise<Arrival[]> {
+    const normalizedQuery = normalizeSubwayArrivalQuery(query);
     if (this.mta.hostedApiEnabled()) {
-      return this.mta.hostedJson<Arrival[]>("/api/v1/subway/arrivals", query);
+      return this.mta.hostedJson<Arrival[]>("/api/v1/subway/arrivals", normalizedQuery);
     }
 
     await this.mta.ready();
-    const routeIds = query.route ? [normalizeRouteId(query.route)] : Object.keys(this.mta.endpoints.subwayFeeds);
+    const routeIds = normalizedQuery.route ? [normalizeRouteId(normalizedQuery.route)] : Object.keys(this.mta.endpoints.subwayFeeds);
     const feeds = [...new Set(routeIds.map((route) => this.feedForRoute(route)))];
-    const stopIds = this.mta.static.getStopIdsForQuery(query.stopId);
-    if (this.mta.static.hasStaticData("subway") && !this.mta.static.getStopOrParent(query.stopId)) {
-      throw new UnknownStopError(query.stopId);
+    const stopIds = this.mta.static.getStopIdsForQuery(normalizedQuery.stopId);
+    if (this.mta.static.hasStaticData("subway") && !this.mta.static.getStopOrParent(normalizedQuery.stopId)) {
+      throw new UnknownStopError(normalizedQuery.stopId);
     }
     const arrivals: Arrival[] = [];
 
     for (const feedUrl of feeds) {
       const feed = await this.mta.realtimeFeed(feedUrl);
-      arrivals.push(...this.arrivalsFromFeed(feed, stopIds, query));
+      arrivals.push(...this.arrivalsFromFeed(feed, stopIds, normalizedQuery));
     }
 
     return arrivals
@@ -170,12 +171,15 @@ class SubwayClient {
         if (!event?.time) continue;
 
         const stop = this.mta.static.getStopOrParent(stopId) ?? fallbackStop(query.stopId);
+        const headsign = staticTrip?.headsign ?? undefined;
         arrivals.push({
           mode: "subway",
           route,
           stop,
           direction,
-          headsign: staticTrip?.headsign ?? undefined,
+          destination: headsign,
+          displayDirection: displayDirection(headsign, direction),
+          headsign,
           arrivalTime: new Date(event.time * 1000).toISOString(),
           departureTime: update.departure?.time ? new Date(update.departure.time * 1000).toISOString() : undefined,
           minutes: Math.max(0, Math.round((event.time * 1000 - now) / 60_000)),
@@ -223,12 +227,15 @@ class BusClient {
         const expected = call.ExpectedArrivalTime ?? call.AimedArrivalTime;
         if (!expected) return undefined;
         const stop = this.mta.static.getStop(String(call.StopPointRef ?? query.stopId)) ?? fallbackStop(query.stopId);
+        const headsign = stringOrUndefined(mvj.DestinationName);
         return {
           mode: "bus",
           route: routeWithFallback(this.mta.static.getRoute(routeId), routeId),
           stop,
           direction: "unknown",
-          headsign: stringOrUndefined(mvj.DestinationName),
+          destination: headsign,
+          displayDirection: displayDirection(headsign, "unknown"),
+          headsign,
           arrivalTime: new Date(expected).toISOString(),
           minutes: Math.max(0, Math.round((Date.parse(expected) - now) / 60_000)),
           tripId: stringOrUndefined(mvj.FramedVehicleJourneyRef?.DatedVehicleJourneyRef),
@@ -374,11 +381,37 @@ function normalizeRouteId(route: string) {
   return route.toUpperCase().trim();
 }
 
-function normalizeDirection(direction: Direction | "uptown" | "downtown" | undefined): Direction | undefined {
+function normalizeSubwayArrivalQuery(query: SubwayArrivalQuery): SubwayArrivalQuery {
+  const route = query.route ?? routeFromLStopId(query.stopId);
+  return {
+    ...query,
+    route,
+    direction: normalizeDirection(query.direction, route),
+  };
+}
+
+function normalizeDirection(
+  direction: Direction | "uptown" | "downtown" | undefined,
+  route?: string,
+): Direction | undefined {
   if (!direction) return undefined;
   if (direction === "uptown") return "north";
   if (direction === "downtown") return "south";
+  if (route && normalizeRouteId(route) === "L") {
+    if (direction === "east") return "south";
+    if (direction === "west") return "north";
+  }
   return direction;
+}
+
+function routeFromLStopId(stopId: string) {
+  return /^L\d{2}[NS]?$/.test(stopId.toUpperCase().trim()) ? "L" : undefined;
+}
+
+function displayDirection(headsign: string | undefined, direction: Direction) {
+  if (headsign) return `toward ${headsign}`;
+  if (direction === "unknown") return undefined;
+  return `${direction}bound`;
 }
 
 function routeWithFallback(route: Route | undefined, routeId: string): Route {

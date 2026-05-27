@@ -150,6 +150,8 @@ export interface Arrival {
   route: Route;
   stop: Stop;
   direction: Direction;
+  destination?: string;
+  displayDirection?: string;
   headsign?: string;
   arrivalTime: string;
   departureTime?: string;

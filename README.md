@@ -28,6 +28,28 @@ const lTrain = await mta.subway.arrivals({
 });
 ```
 
+Arrival rows may include display-oriented fields. `destination` depends on
+destination metadata, while `displayDirection` may still be present as a
+generic fallback label:
+
+```ts
+for (const arrival of lTrain) {
+  const direction =
+    arrival.displayDirection ??
+    (arrival.destination
+      ? `toward ${arrival.destination}`
+      : arrival.headsign
+        ? `toward ${arrival.headsign}`
+        : arrival.direction);
+
+  console.log(`${arrival.route.shortName} ${direction} from ${arrival.stop.name}`);
+}
+```
+
+NYC Subway realtime feeds use NYCT's `north`/`south` stop directions, even on
+east-west lines. For the L train, `mta-js` accepts rider-facing `east`/`west`
+aliases and maps them to the underlying feed directions.
+
 When `apiKey` is present, `mta-js` sends requests to the hosted API at
 `https://www.mtaapi.dev` by default. Override `apiBaseUrl` for tests or private
 deployments.
