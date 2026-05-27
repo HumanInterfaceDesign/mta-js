@@ -110,7 +110,7 @@ class SubwayClient {
 
   async arrivals(query: SubwayArrivalQuery): Promise<Arrival[]> {
     if (this.mta.hostedApiEnabled()) {
-      return this.mta.hostedJson<Arrival[]>("/api/v1/subway/arrivals", query);
+      return hydrateArrivals(await this.mta.hostedJson<Arrival[]>("/api/v1/subway/arrivals", query));
     }
 
     await this.mta.ready();
@@ -170,14 +170,20 @@ class SubwayClient {
         if (!event?.time) continue;
 
         const stop = this.mta.static.getStopOrParent(stopId) ?? fallbackStop(query.stopId);
+        const arrivalDate = new Date(event.time * 1000);
+        const departureDate = update.departure?.time ? new Date(update.departure.time * 1000) : undefined;
         arrivals.push({
           mode: "subway",
           route,
           stop,
           direction,
           headsign: staticTrip?.headsign ?? undefined,
-          arrivalTime: new Date(event.time * 1000).toISOString(),
-          departureTime: update.departure?.time ? new Date(update.departure.time * 1000).toISOString() : undefined,
+          arrivalTimestamp: event.time,
+          arrivalTime: arrivalDate.toISOString(),
+          arrivalDate,
+          departureTimestamp: update.departure?.time,
+          departureTime: departureDate?.toISOString(),
+          departureDate,
           minutes: Math.max(0, Math.round((event.time * 1000 - now) / 60_000)),
           tripId: trip?.tripId,
           realtime: true,
@@ -191,12 +197,40 @@ class SubwayClient {
   }
 }
 
+function hydrateArrivals(arrivals: Arrival[]) {
+  return arrivals.map((arrival) => ({
+    ...arrival,
+    arrivalTimestamp: arrival.arrivalTimestamp ?? dateToUnixSecondsRequired(arrival.arrivalDate ?? arrival.arrivalTime),
+    arrivalDate: hydrateRequiredDate(arrival.arrivalDate ?? arrival.arrivalTime),
+    departureTimestamp: arrival.departureTimestamp ?? dateToUnixSeconds(arrival.departureDate ?? arrival.departureTime),
+    departureDate: hydrateDate(arrival.departureDate ?? arrival.departureTime),
+  }));
+}
+
+function hydrateRequiredDate(value: Date | string) {
+  return value instanceof Date ? value : new Date(value);
+}
+
+function hydrateDate(value: Date | string | undefined) {
+  if (!value) return undefined;
+  return value instanceof Date ? value : new Date(value);
+}
+
+function dateToUnixSecondsRequired(value: Date | string) {
+  return Math.floor(hydrateRequiredDate(value).getTime() / 1000);
+}
+
+function dateToUnixSeconds(value: Date | string | undefined) {
+  if (!value) return undefined;
+  return dateToUnixSecondsRequired(value);
+}
+
 class BusClient {
   constructor(private readonly mta: MTA) {}
 
   async arrivals(query: BusArrivalQuery): Promise<Arrival[]> {
     if (this.mta.hostedApiEnabled()) {
-      return this.mta.hostedJson<Arrival[]>("/api/v1/bus/arrivals", query);
+      return hydrateArrivals(await this.mta.hostedJson<Arrival[]>("/api/v1/bus/arrivals", query));
     }
 
     await this.mta.ready();
@@ -223,14 +257,17 @@ class BusClient {
         const expected = call.ExpectedArrivalTime ?? call.AimedArrivalTime;
         if (!expected) return undefined;
         const stop = this.mta.static.getStop(String(call.StopPointRef ?? query.stopId)) ?? fallbackStop(query.stopId);
+        const arrivalDate = new Date(expected);
         return {
           mode: "bus",
           route: routeWithFallback(this.mta.static.getRoute(routeId), routeId),
           stop,
           direction: "unknown",
           headsign: stringOrUndefined(mvj.DestinationName),
-          arrivalTime: new Date(expected).toISOString(),
-          minutes: Math.max(0, Math.round((Date.parse(expected) - now) / 60_000)),
+          arrivalTimestamp: Math.floor(arrivalDate.getTime() / 1000),
+          arrivalTime: arrivalDate.toISOString(),
+          arrivalDate,
+          minutes: Math.max(0, Math.round((arrivalDate.getTime() - now) / 60_000)),
           tripId: stringOrUndefined(mvj.FramedVehicleJourneyRef?.DatedVehicleJourneyRef),
           realtime: true,
           source: "mta-bustime",

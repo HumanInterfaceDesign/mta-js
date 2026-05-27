@@ -151,8 +151,12 @@ export interface Arrival {
   stop: Stop;
   direction: Direction;
   headsign?: string;
+  arrivalTimestamp: number;
   arrivalTime: string;
+  arrivalDate: Date;
+  departureTimestamp?: number;
   departureTime?: string;
+  departureDate?: Date;
   minutes: number;
   tripId?: string;
   realtime: boolean;

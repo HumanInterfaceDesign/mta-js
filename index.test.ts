@@ -124,6 +124,10 @@ test("subway arrivals decode GTFS realtime and join in-memory static metadata", 
     tripId: "A-trip-1",
     source: "mta-gtfs-rt",
   });
+  expect(arrivals[0]?.arrivalTimestamp).toBe(1_700_000_300);
+  expect(arrivals[0]?.arrivalTime).toBe("2023-11-14T22:18:20.000Z");
+  expect(arrivals[0]?.arrivalDate).toEqual(new Date("2023-11-14T22:18:20.000Z"));
+  expect(arrivals[0]?.arrivalDate).toBeInstanceOf(Date);
 });
 
 test("bus arrivals normalize BusTime responses with in-memory static metadata", async () => {
@@ -170,6 +174,42 @@ test("bus arrivals normalize BusTime responses with in-memory static metadata", 
     stop: { id: "308214", name: "5 Av/Atlantic Av" },
     source: "mta-bustime",
   });
+  expect(arrivals[0]?.arrivalTimestamp).toBe(1_700_000_420);
+  expect(arrivals[0]?.arrivalTime).toBe("2023-11-14T22:20:20.000Z");
+  expect(arrivals[0]?.arrivalDate).toEqual(new Date("2023-11-14T22:20:20.000Z"));
+  expect(arrivals[0]?.arrivalDate).toBeInstanceOf(Date);
+});
+
+test("hosted subway arrivals hydrate date fields from JSON", async () => {
+  const mta = new MTA({
+    apiKey: "test-key",
+    apiBaseUrl: "https://api.example.com",
+    fetch: (async () =>
+      Response.json([
+        {
+          mode: "subway",
+          route: { id: "A", shortName: "A" },
+          stop: { id: "A27", name: "Jay St-MetroTech" },
+          direction: "north",
+          arrivalTime: "2023-11-14T22:18:20.000Z",
+          arrivalDate: "2023-11-14T22:18:20.000Z",
+          departureTime: "2023-11-14T22:19:20.000Z",
+          departureDate: "2023-11-14T22:19:20.000Z",
+          minutes: 3,
+          realtime: true,
+          source: "mta-gtfs-rt",
+        },
+      ])) as unknown as typeof fetch,
+  });
+
+  const arrivals = await mta.subway.arrivals({ stopId: "A27", route: "A" });
+
+  expect(arrivals[0]?.arrivalTimestamp).toBe(1_700_000_300);
+  expect(arrivals[0]?.arrivalDate).toEqual(new Date("2023-11-14T22:18:20.000Z"));
+  expect(arrivals[0]?.arrivalDate).toBeInstanceOf(Date);
+  expect(arrivals[0]?.departureTimestamp).toBe(1_700_000_360);
+  expect(arrivals[0]?.departureDate).toEqual(new Date("2023-11-14T22:19:20.000Z"));
+  expect(arrivals[0]?.departureDate).toBeInstanceOf(Date);
 });
 
 test("local stops.near requires in-memory static data", async () => {
