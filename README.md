@@ -7,7 +7,7 @@ TypeScript client for MTA realtime feeds and the hosted MTA API.
 Use an API key from `mtaapi.dev` for route-aware static lookups and managed
 realtime endpoints:
 
-```ts
+```js
 import { MTA } from "mta-js";
 
 const mta = new MTA({
@@ -38,7 +38,7 @@ Arrival rows may include display-oriented fields. `destination` depends on
 destination metadata, while `displayDirection` may still be present as a
 generic fallback label:
 
-```ts
+```js
 for (const arrival of lTrain) {
   console.log(
     `${arrival.route.shortName} ${arrival.displayDirection ?? arrival.destination ?? "unknown direction"} from ${arrival.stop.displayName ?? arrival.stop.name}`,
@@ -63,7 +63,7 @@ deployments.
 
 You can still call MTA realtime feeds directly without the hosted API:
 
-```ts
+```js
 const mta = new MTA({
   busTimeKey: process.env.MTA_BUS_KEY,
 });
@@ -77,7 +77,7 @@ const buses = await mta.bus.arrivals({
 Direct feed mode has no bundled SQLite, Turso, or persistent GTFS database. If
 you need richer local metadata, pass a small in-memory `staticData` seed:
 
-```ts
+```js
 const mta = new MTA({
   staticData: {
     stops: [
