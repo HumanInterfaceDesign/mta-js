@@ -41,7 +41,7 @@ generic fallback label:
 ```ts
 for (const arrival of lTrain) {
   console.log(
-    `${arrival.route.shortName} ${arrival.displayDirection} from ${arrival.stop.displayName}`,
+    `${arrival.route.shortName} ${arrival.displayDirection ?? arrival.destination ?? "unknown direction"} from ${arrival.stop.displayName ?? arrival.stop.name}`,
   );
 }
 ```
