@@ -26,6 +26,12 @@ const lTrain = await mta.subway.arrivals({
   stopId: "L08",
   route: "L",
 });
+
+const direction = await mta.subway.direction({
+  route: "L",
+  fromStopId: "L06",
+  destination: "Union Sq",
+});
 ```
 
 Arrival rows may include display-oriented fields. `destination` depends on
@@ -34,17 +40,16 @@ generic fallback label:
 
 ```ts
 for (const arrival of lTrain) {
-  const direction =
-    arrival.displayDirection ??
-    (arrival.destination
-      ? `toward ${arrival.destination}`
-      : arrival.headsign
-        ? `toward ${arrival.headsign}`
-        : arrival.direction);
-
-  console.log(`${arrival.route.shortName} ${direction} from ${arrival.stop.name}`);
+  console.log(
+    `${arrival.route.shortName} ${arrival.displayDirection ?? arrival.destination ?? "unknown direction"} from ${arrival.stop.displayName ?? arrival.stop.name}`,
+  );
 }
 ```
+
+Use `mta.subway.direction(...)` when a rider enters an intermediate destination
+such as `Union Sq`; the hosted API resolves it against static GTFS route order
+and returns a typed `direction`, `destinationStop`, and terminal-facing
+`displayDirection` such as `toward 8 Av`.
 
 NYC Subway realtime feeds use NYCT's `north`/`south` stop directions, even on
 east-west lines. For the L train, `mta-js` accepts rider-facing `east`/`west`
@@ -110,6 +115,7 @@ override them.
 ## Endpoints
 
 - `mta.subway.arrivals(...)`
+- `mta.subway.direction(...)`
 - `mta.bus.arrivals(...)`
 - `mta.bus.vehicles(...)`
 - `mta.alerts.current(...)`

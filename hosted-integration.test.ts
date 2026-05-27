@@ -27,9 +27,16 @@ describe.skipIf(!apiKey)("hosted integration tests", () => {
       limit: 5,
     });
 
+    const direction = await mta.subway.direction({
+      route: "L",
+      fromStopId: "L06",
+      destination: "Union Sq",
+    });
+
     expect(Array.isArray(arrivals)).toBe(true);
     expect(Array.isArray(stops)).toBe(true);
     expect(Array.isArray(vehicles)).toBe(true);
+    expect(typeof direction.resolved).toBe("boolean");
     expect(stops.length).toBeGreaterThan(0);
     expect(stops.every((stop) => stop.routeMatch)).toBe(true);
   }, 30_000);
