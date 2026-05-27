@@ -25,6 +25,26 @@ const staticData = {
       stop_lat: 40.682,
       stop_lon: -73.978,
     },
+    {
+      stop_id: "L06",
+      stop_name: "1 Av",
+      stop_lat: 40.730953,
+      stop_lon: -73.981628,
+    },
+    {
+      stop_id: "L06S",
+      stop_name: "1 Av",
+      stop_lat: 40.730953,
+      stop_lon: -73.981628,
+      parent_station: "L06",
+    },
+    {
+      stop_id: "L06N",
+      stop_name: "1 Av",
+      stop_lat: 40.730953,
+      stop_lon: -73.981628,
+      parent_station: "L06",
+    },
   ],
   routes: [
     {
@@ -40,6 +60,13 @@ const staticData = {
       route_long_name: "Bay Ridge - Cobble Hill",
       route_type: 3,
     },
+    {
+      route_id: "L",
+      route_short_name: "L",
+      route_long_name: "14 St-Canarsie Local",
+      route_type: 1,
+      route_color: "7C858C",
+    },
   ],
   trips: [
     {
@@ -47,6 +74,20 @@ const staticData = {
       service_id: "weekday",
       trip_id: "A-trip-1",
       trip_headsign: "Inwood-207 St",
+      direction_id: 0,
+    },
+    {
+      route_id: "L",
+      service_id: "weekday",
+      trip_id: "L-trip-1",
+      trip_headsign: "Canarsie-Rockaway Pkwy",
+      direction_id: 1,
+    },
+    {
+      route_id: "L",
+      service_id: "weekday",
+      trip_id: "L-trip-2",
+      trip_headsign: "8 Av",
       direction_id: 0,
     },
   ],
@@ -75,6 +116,25 @@ test("hosted API calls include bearer and x-api-key auth headers", async () => {
   expect(request?.url).toBe("https://api.example.com/api/v1/stops/near?lat=40.7173&lon=-73.9568&modes=subway&route=L");
   expect(request?.headers.get("authorization")).toBe("Bearer test-key");
   expect(request?.headers.get("x-api-key")).toBe("test-key");
+});
+
+test("hosted subway arrivals infer L route and normalize east aliases before requesting the API", async () => {
+  let request: Request | undefined;
+  const mta = new MTA({
+    apiKey: "test-key",
+    apiBaseUrl: "https://api.example.com",
+    fetch: (async (input, init) => {
+      request = input instanceof Request ? new Request(input, init) : new Request(String(input), init);
+      return Response.json([]);
+    }) as typeof fetch,
+  });
+
+  await mta.subway.arrivals({ stopId: "L06", direction: "east" });
+
+  const url = new URL(request?.url ?? "");
+  expect(url.pathname).toBe("/api/v1/subway/arrivals");
+  expect(url.searchParams.get("route")).toBe("L");
+  expect(url.searchParams.get("direction")).toBe("south");
 });
 
 test("subway arrivals decode GTFS realtime and join in-memory static metadata", async () => {
@@ -120,9 +180,78 @@ test("subway arrivals decode GTFS realtime and join in-memory static metadata", 
       name: "Jay St-MetroTech",
     },
     direction: "north",
+    destination: "Inwood-207 St",
+    displayDirection: "toward Inwood-207 St",
     headsign: "Inwood-207 St",
     tripId: "A-trip-1",
     source: "mta-gtfs-rt",
+  });
+});
+
+test("subway arrivals map L east and west aliases to NYCT north and south directions", async () => {
+  const feed = encodeFeedMessage({
+    header: { gtfsRealtimeVersion: "2.0", timestamp: 1_700_000_000 },
+    entity: [
+      {
+        id: "arrival-1",
+        tripUpdate: {
+          trip: { tripId: "L-trip-1", routeId: "L" },
+          stopTimeUpdate: [
+            {
+              stopId: "L06S",
+              arrival: { time: 1_700_000_300 },
+            },
+          ],
+        },
+      },
+      {
+        id: "arrival-2",
+        tripUpdate: {
+          trip: { tripId: "L-trip-2", routeId: "L" },
+          stopTimeUpdate: [
+            {
+              stopId: "L06N",
+              arrival: { time: 1_700_000_360 },
+            },
+          ],
+        },
+      },
+    ],
+  });
+
+  const mta = new MTA({
+    staticData,
+    fetch: (async () => new Response(feed)) as unknown as typeof fetch,
+    endpoints: {
+      subwayFeeds: { L: "feed://l" },
+    },
+  });
+
+  const eastboundArrivals = await mta.subway.arrivals({ stopId: "L06", direction: "east" });
+  const westboundArrivals = await mta.subway.arrivals({ stopId: "L06", direction: "west" });
+
+  expect(eastboundArrivals).toHaveLength(1);
+  expect(eastboundArrivals[0]).toMatchObject({
+    route: {
+      id: "L",
+      shortName: "L",
+      longName: "14 St-Canarsie Local",
+    },
+    stop: {
+      id: "L06",
+      name: "1 Av",
+    },
+    direction: "south",
+    destination: "Canarsie-Rockaway Pkwy",
+    displayDirection: "toward Canarsie-Rockaway Pkwy",
+    headsign: "Canarsie-Rockaway Pkwy",
+  });
+  expect(westboundArrivals).toHaveLength(1);
+  expect(westboundArrivals[0]).toMatchObject({
+    direction: "north",
+    destination: "8 Av",
+    displayDirection: "toward 8 Av",
+    headsign: "8 Av",
   });
 });
 
@@ -168,6 +297,9 @@ test("bus arrivals normalize BusTime responses with in-memory static metadata", 
     mode: "bus",
     route: { id: "B63", shortName: "B63" },
     stop: { id: "308214", name: "5 Av/Atlantic Av" },
+    destination: "Cobble Hill",
+    displayDirection: "toward Cobble Hill",
+    headsign: "Cobble Hill",
     source: "mta-bustime",
   });
 });
