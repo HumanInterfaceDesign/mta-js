@@ -1,6 +1,6 @@
 {
   "name": "mta-js",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "A TypeScript client for MTA realtime feeds and the hosted MTA API.",
   "license": "MIT",
   "repository": {
