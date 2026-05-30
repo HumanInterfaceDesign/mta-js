@@ -328,15 +328,12 @@ class BusClient {
   }
 
   arrivalBoard(query: BusArrivalBoardQuery): Promise<BusArrivalBoardStop[]> {
-    return this.mta.hostedJson<BusArrivalBoardStop[]>("/api/v1/bus/arrival-board", {
-      ...query,
-      route: query.route ? normalizeBusRouteId(query.route) : undefined,
-    });
+    return this.mta.hostedJson<BusArrivalBoardStop[]>("/api/v1/bus/arrival-board", query);
   }
 
   routeStops(query: BusRouteStopsQuery): Promise<RouteStopsResponse> {
     return this.mta.hostedJson<RouteStopsResponse>(
-      `/api/v1/bus/routes/${encodeURIComponent(normalizeBusRouteId(query.route))}/stops`,
+      `/api/v1/bus/routes/${encodeURIComponent(query.route)}/stops`,
       {
         ...query,
         route: undefined,
