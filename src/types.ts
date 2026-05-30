@@ -19,9 +19,11 @@ export type SubwayStopId = AutocompleteString<KnownSubwayStopId>;
 export type BusStopId = AutocompleteString<KnownBusStopId>;
 
 export type TransitMode = "subway" | "bus" | "lirr" | "metro-north";
+export type StopMode = "subway" | "bus";
 
 export type Direction = "north" | "south" | "east" | "west" | "unknown";
 export type SubwayResolvedDirection = "north" | "south";
+export type SubwayDirectionAlias = Direction | "uptown" | "downtown";
 
 export type DirectionHeadsigns = Record<string, string[]>;
 
@@ -157,6 +159,17 @@ export type NearbyStop = Stop & {
   note?: string;
 };
 
+export type StopLookup = {
+  requestedId: string;
+  found: boolean;
+  stop?: Stop;
+  servedRoutes?: ServedRoute[];
+};
+
+export type RouteCatalogEntry = Route & {
+  mode: StopMode;
+};
+
 export interface Arrival {
   mode: TransitMode;
   route: Route;
@@ -207,10 +220,32 @@ export interface Alert {
 export interface SubwayArrivalQuery {
   stopId: SubwayStopId;
   route?: SubwayRoute;
-  direction?: Direction | "uptown" | "downtown";
+  direction?: SubwayDirectionAlias;
   limit?: number;
   includeRaw?: boolean;
 }
+
+export interface SubwayArrivalBoardQuery {
+  lat: number;
+  lon: number;
+  route?: SubwayRoute;
+  radiusMeters?: number;
+  limitStations?: number;
+  limitArrivals?: number;
+  includeRaw?: boolean;
+}
+
+export type ArrivalBoardDirection = {
+  direction: Direction;
+  headsign?: string;
+  arrivals: Arrival[];
+};
+
+export type SubwayArrivalBoardStation = {
+  station: Stop;
+  distanceMeters: number;
+  directions: ArrivalBoardDirection[];
+};
 
 export interface SubwayDirectionQuery {
   route: SubwayRoute;
@@ -239,6 +274,28 @@ export interface BusArrivalQuery {
   includeRaw?: boolean;
 }
 
+export interface BusArrivalBoardQuery {
+  lat: number;
+  lon: number;
+  route?: BusRoute;
+  radiusMeters?: number;
+  limitStops?: number;
+  limitArrivals?: number;
+  includeRaw?: boolean;
+}
+
+export type BusArrivalBoardRoute = {
+  route: Route;
+  headsign?: string;
+  arrivals: Arrival[];
+};
+
+export type BusArrivalBoardStop = {
+  stop: Stop;
+  distanceMeters: number;
+  routes: BusArrivalBoardRoute[];
+};
+
 export interface BusVehicleQuery {
   route?: BusRoute;
   vehicleId?: string;
@@ -261,4 +318,47 @@ export interface StopsNearQuery {
   includeRoutes?: boolean;
   radiusMeters?: number;
   limit?: number;
+}
+
+export interface StopsByIdsQuery {
+  ids: StopId[];
+  includeRoutes?: boolean;
+}
+
+export interface RoutesListQuery {
+  modes?: StopMode[];
+}
+
+export type RoutePatternStop = Stop & {
+  arrivals?: Arrival[];
+};
+
+export type RoutePattern = {
+  direction: string;
+  headsigns?: string[];
+  stops: RoutePatternStop[];
+};
+
+export type RouteStopsResponse = {
+  route: Route;
+  mode: StopMode;
+  directions: RoutePattern[];
+};
+
+export interface SubwayRouteStationsQuery {
+  route: SubwayRoute;
+  direction?: SubwayDirectionAlias;
+  includeArrivals?: boolean;
+  limitArrivals?: number;
+  limitStops?: number;
+  includeRaw?: boolean;
+}
+
+export interface BusRouteStopsQuery {
+  route: BusRoute;
+  direction?: number | string;
+  includeArrivals?: boolean;
+  limitArrivals?: number;
+  limitStops?: number;
+  includeRaw?: boolean;
 }

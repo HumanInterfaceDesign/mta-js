@@ -190,6 +190,139 @@ test("hosted subway direction calls resolve intermediate destinations through th
   });
 });
 
+test("hosted expansion methods call the managed API endpoints", async () => {
+  const requests: Request[] = [];
+  const mta = new MTA({
+    apiKey: "test-key",
+    apiBaseUrl: "https://api.example.com",
+    fetch: (async (input, init) => {
+      const request = input instanceof Request ? new Request(input, init) : new Request(String(input), init);
+      requests.push(request);
+
+      const url = new URL(request.url);
+      if (url.pathname === "/api/v1/subway/arrival-board") {
+        return Response.json([
+          {
+            station: { id: "L06", name: "1 Av", displayName: "1 Av" },
+            distanceMeters: 120,
+            directions: [],
+          },
+        ]);
+      }
+      if (url.pathname === "/api/v1/bus/arrival-board") {
+        return Response.json([
+          {
+            stop: { id: "903002", name: "Avenue C/E 20 St" },
+            distanceMeters: 80,
+            routes: [],
+          },
+        ]);
+      }
+      if (url.pathname === "/api/v1/stops") {
+        return Response.json([
+          {
+            requestedId: "L06",
+            found: true,
+            stop: { id: "L06", name: "1 Av", displayName: "1 Av" },
+          },
+        ]);
+      }
+      if (url.pathname === "/api/v1/routes") {
+        return Response.json([{ id: "L", shortName: "L", mode: "subway" }]);
+      }
+      if (url.pathname === "/api/v1/subway/routes/L/stations") {
+        return Response.json({
+          route: { id: "L", shortName: "L" },
+          mode: "subway",
+          directions: [],
+        });
+      }
+      if (url.pathname === "/api/v1/bus/routes/M23-SBS/stops") {
+        return Response.json({
+          route: { id: "M23+", shortName: "M23-SBS" },
+          mode: "bus",
+          directions: [],
+        });
+      }
+
+      return Response.json({ error: "unexpected path", path: url.pathname }, { status: 404 });
+    }) as typeof fetch,
+  });
+
+  await expect(
+    mta.subway.arrivalBoard({
+      lat: 40.7356,
+      lon: -73.9906,
+      route: "l",
+      limitStations: 5,
+      limitArrivals: 3,
+    }),
+  ).resolves.toHaveLength(1);
+  await expect(
+    mta.bus.arrivalBoard({
+      lat: 40.7421,
+      lon: -73.9914,
+      route: "M23",
+      limitStops: 8,
+      limitArrivals: 3,
+    }),
+  ).resolves.toHaveLength(1);
+  await expect(
+    mta.stops.byIds({
+      ids: ["A27", "L06", "308214"],
+      includeRoutes: true,
+    }),
+  ).resolves.toHaveLength(1);
+  await expect(mta.routes.list({ modes: ["subway", "bus"] })).resolves.toHaveLength(1);
+  await expect(
+    mta.subway.routeStations({
+      route: "L",
+      direction: "east",
+      includeArrivals: true,
+      limitStops: 12,
+      limitArrivals: 2,
+    }),
+  ).resolves.toMatchObject({ mode: "subway" });
+  await expect(
+    mta.bus.routeStops({
+      route: "M23",
+      direction: 0,
+      includeArrivals: true,
+      limitStops: 12,
+      limitArrivals: 2,
+    }),
+  ).resolves.toMatchObject({ mode: "bus" });
+
+  const urls = requests.map((request) => new URL(request.url));
+  expect(urls.map((url) => url.pathname)).toEqual([
+    "/api/v1/subway/arrival-board",
+    "/api/v1/bus/arrival-board",
+    "/api/v1/stops",
+    "/api/v1/routes",
+    "/api/v1/subway/routes/L/stations",
+    "/api/v1/bus/routes/M23-SBS/stops",
+  ]);
+  const [
+    subwayBoardUrl,
+    busBoardUrl,
+    stopsUrl,
+    routesUrl,
+    subwayRouteStationsUrl,
+    busRouteStopsUrl,
+  ] = urls as [URL, URL, URL, URL, URL, URL];
+  expect(subwayBoardUrl.searchParams.get("route")).toBe("L");
+  expect(busBoardUrl.searchParams.get("route")).toBe("M23-SBS");
+  expect(stopsUrl.searchParams.get("ids")).toBe("A27,L06,308214");
+  expect(stopsUrl.searchParams.get("includeRoutes")).toBe("true");
+  expect(routesUrl.searchParams.get("modes")).toBe("subway,bus");
+  expect(subwayRouteStationsUrl.searchParams.get("direction")).toBe("south");
+  expect(subwayRouteStationsUrl.searchParams.get("limitStops")).toBe("12");
+  expect(subwayRouteStationsUrl.searchParams.has("route")).toBe(false);
+  expect(busRouteStopsUrl.searchParams.get("direction")).toBe("0");
+  expect(busRouteStopsUrl.searchParams.get("limitArrivals")).toBe("2");
+  expect(busRouteStopsUrl.searchParams.has("route")).toBe(false);
+});
+
 test("subway arrivals decode GTFS realtime and join in-memory static metadata", async () => {
   const feed = encodeFeedMessage({
     header: { gtfsRealtimeVersion: "2.0", timestamp: 1_700_000_000 },

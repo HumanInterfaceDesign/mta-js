@@ -8,17 +8,28 @@ import type {
   AlertQuery,
   Arrival,
   BusArrivalQuery,
+  BusArrivalBoardQuery,
+  BusArrivalBoardStop,
+  BusRouteStopsQuery,
   BusVehicleQuery,
   Direction,
   MTAEndpoints,
   MTAOptions,
   NearbyStop,
   Route,
+  RouteCatalogEntry,
+  RouteStopsResponse,
+  RoutesListQuery,
   Stop,
+  StopLookup,
+  StopsByIdsQuery,
   StopsNearQuery,
   SubwayArrivalQuery,
+  SubwayArrivalBoardQuery,
+  SubwayArrivalBoardStation,
   SubwayDirectionQuery,
   SubwayDirectionResolution,
+  SubwayRouteStationsQuery,
   TransitMode,
   Vehicle,
 } from "./src/types";
@@ -29,6 +40,7 @@ export class MTA {
   readonly bus: BusClient;
   readonly alerts: AlertsClient;
   readonly stops: StopsClient;
+  readonly routes: RoutesClient;
 
   readonly fetch: typeof fetch;
   readonly now: () => Date;
@@ -62,6 +74,7 @@ export class MTA {
     this.bus = new BusClient(this);
     this.alerts = new AlertsClient(this);
     this.stops = new StopsClient(this);
+    this.routes = new RoutesClient(this);
   }
 
   async ready() {
@@ -137,6 +150,24 @@ class SubwayClient {
 
   direction(query: SubwayDirectionQuery): Promise<SubwayDirectionResolution> {
     return this.mta.hostedJson<SubwayDirectionResolution>("/api/v1/subway/direction", query);
+  }
+
+  arrivalBoard(query: SubwayArrivalBoardQuery): Promise<SubwayArrivalBoardStation[]> {
+    return this.mta.hostedJson<SubwayArrivalBoardStation[]>("/api/v1/subway/arrival-board", {
+      ...query,
+      route: query.route ? normalizeRouteId(query.route) : undefined,
+    });
+  }
+
+  routeStations(query: SubwayRouteStationsQuery): Promise<RouteStopsResponse> {
+    return this.mta.hostedJson<RouteStopsResponse>(
+      `/api/v1/subway/routes/${encodeURIComponent(normalizeRouteId(query.route))}/stations`,
+      {
+        ...query,
+        route: undefined,
+        direction: normalizeDirection(query.direction, query.route),
+      },
+    );
   }
 
   private feedForRoute(route: string) {
@@ -296,6 +327,23 @@ class BusClient {
       .slice(0, query.limit ?? 50);
   }
 
+  arrivalBoard(query: BusArrivalBoardQuery): Promise<BusArrivalBoardStop[]> {
+    return this.mta.hostedJson<BusArrivalBoardStop[]>("/api/v1/bus/arrival-board", {
+      ...query,
+      route: query.route ? normalizeBusRouteId(query.route) : undefined,
+    });
+  }
+
+  routeStops(query: BusRouteStopsQuery): Promise<RouteStopsResponse> {
+    return this.mta.hostedJson<RouteStopsResponse>(
+      `/api/v1/bus/routes/${encodeURIComponent(normalizeBusRouteId(query.route))}/stops`,
+      {
+        ...query,
+        route: undefined,
+      },
+    );
+  }
+
   private requireKey() {
     if (!this.mta.busTimeKey) throw new MissingBusTimeKeyError();
     return this.mta.busTimeKey;
@@ -360,6 +408,18 @@ class StopsClient {
       if (!this.mta.static.hasStopData()) throw new StaticDataMissingError(query.modes?.[0] ?? "requested modes");
       return this.mta.static.stopsNear(query);
     });
+  }
+
+  byIds(query: StopsByIdsQuery): Promise<StopLookup[]> {
+    return this.mta.hostedJson<StopLookup[]>("/api/v1/stops", query);
+  }
+}
+
+class RoutesClient {
+  constructor(private readonly mta: MTA) {}
+
+  list(query: RoutesListQuery = {}): Promise<RouteCatalogEntry[]> {
+    return this.mta.hostedJson<RouteCatalogEntry[]>("/api/v1/routes", query);
   }
 }
 

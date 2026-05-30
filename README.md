@@ -32,6 +32,40 @@ const direction = await mta.subway.direction({
   fromStopId: "L06",
   destination: "Union Sq",
 });
+
+const subwayBoard = await mta.subway.arrivalBoard({
+  lat: 40.7356,
+  lon: -73.9906,
+  limitStations: 5,
+  limitArrivals: 3,
+});
+
+const busBoard = await mta.bus.arrivalBoard({
+  lat: 40.7421,
+  lon: -73.9914,
+  route: "M23",
+  limitStops: 8,
+  limitArrivals: 3,
+});
+
+const favoriteStops = await mta.stops.byIds({
+  ids: ["A27", "L06", "308214"],
+  includeRoutes: true,
+});
+
+const routes = await mta.routes.list({
+  modes: ["subway", "bus"],
+});
+
+const lStations = await mta.subway.routeStations({
+  route: "L",
+  direction: "uptown",
+});
+
+const m23Stops = await mta.bus.routeStops({
+  route: "M23",
+  direction: 0,
+});
 ```
 
 Arrival rows may include display-oriented fields. `destination` depends on
@@ -115,8 +149,14 @@ override them.
 ## Endpoints
 
 - `mta.subway.arrivals(...)`
+- `mta.subway.arrivalBoard(...)`
 - `mta.subway.direction(...)`
+- `mta.subway.routeStations(...)`
 - `mta.bus.arrivals(...)`
+- `mta.bus.arrivalBoard(...)`
+- `mta.bus.routeStops(...)`
 - `mta.bus.vehicles(...)`
 - `mta.alerts.current(...)`
+- `mta.routes.list(...)`
+- `mta.stops.byIds(...)`
 - `mta.stops.near(...)`
