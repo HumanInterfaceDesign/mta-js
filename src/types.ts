@@ -19,7 +19,7 @@ export type SubwayStopId = AutocompleteString<KnownSubwayStopId>;
 export type BusStopId = AutocompleteString<KnownBusStopId>;
 
 export type TransitMode = "subway" | "bus" | "lirr" | "metro-north";
-export type StopMode = "subway" | "bus";
+export type StopMode = "subway" | "bus" | "path" | "nj-transit-rail" | "nyc-ferry" | "lirr" | "metro-north";
 
 export type Direction = "north" | "south" | "east" | "west" | "unknown";
 export type SubwayResolvedDirection = "north" | "south";
@@ -361,4 +361,452 @@ export interface BusRouteStopsQuery {
   limitArrivals?: number;
   limitStops?: number;
   includeRaw?: boolean;
+}
+
+export type RegionalMode = "subway" | "bus" | "path" | "nj-transit-rail" | "nyc-ferry" | "lirr" | "metro-north";
+export type CommuterRailMode = "lirr" | "metro-north";
+export type HostedArrivalDirection = "north" | "south" | "east" | "west" | "unknown" | "uptown" | "downtown";
+
+export interface PathStation {
+  id: string;
+  gtfsId?: string;
+  name: string;
+  displayName: string;
+  lat?: number;
+  lon?: number;
+  state: "NJ";
+  mode: "path";
+}
+
+export interface PathRoute {
+  id: string;
+  gtfsId?: string;
+  shortName?: string;
+  longName?: string;
+  color?: string;
+  textColor?: string;
+  mode: "path";
+}
+
+export interface PathArrivalRoute {
+  id: string;
+  gtfsId?: string;
+  shortName?: string;
+  longName?: string;
+  type?: number;
+  color?: string;
+  textColor?: string;
+}
+
+export interface PathArrivalStop {
+  id: string;
+  gtfsId?: string;
+  name?: string;
+  displayName?: string;
+  lat?: number;
+  lon?: number;
+  state: "NJ";
+  mode: "path";
+}
+
+export interface PathArrival {
+  mode: "path";
+  route: PathArrivalRoute;
+  stop: PathArrivalStop;
+  direction: HostedArrivalDirection;
+  destination?: string;
+  displayDirection?: string;
+  headsign?: string;
+  arrivalTime: string;
+  minutes: number;
+  realtime: boolean;
+  source: string;
+  raw?: unknown;
+}
+
+export interface HostedRoutePatternRoute {
+  id: string;
+  gtfsId?: string;
+  shortName?: string;
+  longName?: string;
+  type?: number;
+  color?: string;
+  textColor?: string;
+}
+
+export interface HostedRoutePatternArrivalStop {
+  id: string;
+  name: string;
+  displayName?: string;
+  lat?: number;
+  lon?: number;
+  mode?: RegionalMode;
+  parentId?: string;
+}
+
+export interface HostedRoutePatternArrival {
+  mode: "subway" | "bus" | "path" | "nj-transit-rail" | "lirr" | "metro-north";
+  route: HostedRoutePatternRoute;
+  stop: HostedRoutePatternArrivalStop;
+  direction: HostedArrivalDirection;
+  destination?: string;
+  displayDirection?: string;
+  headsign?: string;
+  arrivalTime: string;
+  departureTime?: string;
+  minutes: number;
+  tripId?: string;
+  realtime: boolean;
+  source: string;
+  raw?: unknown;
+}
+
+export interface HostedRoutePatternStop extends HostedRoutePatternArrivalStop {
+  arrivals?: HostedRoutePatternArrival[];
+}
+
+export interface HostedRoutePatternDirection {
+  direction: string;
+  headsigns?: string[];
+  stops: HostedRoutePatternStop[];
+}
+
+export interface PathRouteStations {
+  route: HostedRoutePatternRoute;
+  mode: RegionalMode;
+  directions: HostedRoutePatternDirection[];
+}
+
+export interface PathArrivalsQuery {
+  station?: string;
+  route?: string;
+  direction?: "to-ny" | "to-nj" | "east" | "west";
+  limit?: number;
+  includeRaw?: boolean;
+}
+
+export interface PathRouteStationsQuery {
+  route: string;
+  direction?: "east" | "west";
+}
+
+export interface NjTransitRailStation {
+  id: string;
+  name: string;
+  shortName?: string;
+  mode: "nj-transit-rail";
+  raw?: unknown;
+}
+
+export interface NjTransitRailDepartureStop {
+  station: NjTransitRailStation;
+  arrivalTime?: string;
+  departureTime?: string;
+  status?: string;
+  departed?: boolean;
+  pickupOnly?: boolean;
+  dropoffOnly?: boolean;
+}
+
+export interface NjTransitRailDeparture {
+  mode: "nj-transit-rail";
+  route: HostedRoutePatternRoute;
+  station: NjTransitRailStation;
+  destination?: string;
+  departureTime: string;
+  minutes: number;
+  track?: string;
+  trainId?: string;
+  tripId?: string;
+  status?: string;
+  delaySeconds?: number;
+  lastUpdated?: string;
+  lat?: number;
+  lon?: number;
+  stops?: NjTransitRailDepartureStop[];
+  realtime: boolean;
+  source: string;
+  raw?: unknown;
+}
+
+export interface NjTransitRailVehicle {
+  mode: "nj-transit-rail";
+  route: HostedRoutePatternRoute;
+  vehicleId?: string;
+  trainId: string;
+  direction?: string;
+  trackCircuitId?: string;
+  nextStop?: NjTransitRailStation;
+  lat?: number;
+  lon?: number;
+  departureTime?: string;
+  delaySeconds?: number;
+  recordedAt?: string;
+  source: string;
+  raw?: unknown;
+}
+
+export interface NjTransitRailAlert {
+  id: string;
+  mode: "nj-transit-rail";
+  type?: string;
+  header?: string;
+  description?: string;
+  publishedAt?: string;
+  routes: HostedRoutePatternRoute[];
+  stations: NjTransitRailStation[];
+  source: string;
+  raw?: unknown;
+}
+
+export interface NjTransitRailRouteStations {
+  route: HostedRoutePatternRoute;
+  mode: RegionalMode;
+  directions: HostedRoutePatternDirection[];
+}
+
+export interface NjTransitRailStationsQuery {
+  includeRaw?: boolean;
+}
+
+export interface NjTransitRailDeparturesQuery {
+  station: string;
+  line?: string;
+  includeStops?: boolean;
+  limit?: number;
+  includeRaw?: boolean;
+}
+
+export interface NjTransitRailVehiclesQuery {
+  line?: string;
+  limit?: number;
+  includeRaw?: boolean;
+}
+
+export interface NjTransitRailAlertsQuery {
+  station?: string;
+  line?: string;
+  limit?: number;
+  includeRaw?: boolean;
+}
+
+export interface NjTransitRailRouteStationsQuery {
+  route: string;
+  direction?: string;
+}
+
+export interface NycFerryStop {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  parentId?: string;
+  mode: "nyc-ferry";
+}
+
+export interface NycFerryRoute {
+  id: string;
+  shortName?: string;
+  longName?: string;
+  type?: number;
+  color?: string;
+  textColor?: string;
+  mode: "nyc-ferry";
+}
+
+export interface NycFerryRouteStops {
+  route: NycFerryRoute;
+  mode: "nyc-ferry";
+  directions: {
+    direction: string;
+    headsigns?: string[];
+    stops: NycFerryStop[];
+  }[];
+}
+
+export interface NycFerryArrival {
+  mode: "nyc-ferry";
+  route: NycFerryRoute;
+  stop: NycFerryStop;
+  direction: string;
+  destination?: string;
+  headsign?: string;
+  arrivalTime: string;
+  minutes: number;
+  tripId?: string;
+  realtime: boolean;
+  source: string;
+}
+
+export interface NycFerryVehicle {
+  mode: "nyc-ferry";
+  route: NycFerryRoute;
+  vehicleId?: string;
+  tripId?: string;
+  stop?: NycFerryStop;
+  lat?: number;
+  lon?: number;
+  bearing?: number;
+  destinationName?: string;
+  recordedAt?: string;
+  source: string;
+}
+
+export interface NycFerryAlert {
+  id: string;
+  mode: "nyc-ferry";
+  header?: string;
+  description?: string;
+  url?: string;
+  effect?: string;
+  activePeriods: { start?: string; end?: string }[];
+  routeIds: string[];
+  stopIds: string[];
+  source: string;
+}
+
+export interface NycFerryRouteStopsQuery {
+  route: string;
+}
+
+export interface NycFerryArrivalsQuery {
+  stop?: string;
+  route?: string;
+  limit?: number;
+}
+
+export interface NycFerryVehiclesQuery {
+  route?: string;
+}
+
+export interface CitiBikeStation {
+  id: string;
+  shortName?: string;
+  name: string;
+  lat: number;
+  lon: number;
+  regionId?: string;
+  capacity?: number;
+  bikesAvailable: number;
+  ebikesAvailable: number;
+  classicBikesAvailable: number;
+  docksAvailable: number;
+  bikesDisabled: number;
+  docksDisabled: number;
+  isInstalled: boolean;
+  isRenting: boolean;
+  isReturning: boolean;
+  lastReported?: string;
+  distanceMeters?: number;
+  mode: "citi-bike";
+  source: "citi-bike-gbfs";
+}
+
+export interface CitiBikeAlert {
+  id: string;
+  type?: string;
+  stationIds: string[];
+  regionIds: string[];
+  summary?: string;
+  description?: string;
+  url?: string;
+  times: { start?: string; end?: string }[];
+  lastUpdated?: string;
+  mode: "citi-bike";
+  source: "citi-bike-gbfs";
+}
+
+export interface CitiBikeStationsQuery {
+  lat?: number;
+  lon?: number;
+  radius?: number;
+  limit?: number;
+  minBikes?: number;
+  minDocks?: number;
+  ebike?: boolean;
+}
+
+export interface CitiBikeStationQuery {
+  id: string;
+}
+
+export interface CommuterRailStop {
+  id: string;
+  code?: string;
+  name: string;
+  lat: number;
+  lon: number;
+  mode: CommuterRailMode;
+}
+
+export interface CommuterRailRoute {
+  id: string;
+  name: string;
+  color?: string;
+  mode: CommuterRailMode;
+}
+
+export interface CommuterRailRouteStops {
+  route: CommuterRailRoute;
+  stops: CommuterRailStop[];
+}
+
+export interface CommuterRailDeparture {
+  route: CommuterRailRoute;
+  stop: CommuterRailStop;
+  trainNumber?: string;
+  headsign?: string;
+  destination?: string;
+  direction: string;
+  peak?: string;
+  time: string;
+  minutes: number;
+  delaySeconds?: number;
+  tripId?: string;
+  realtime: true;
+  source: string;
+}
+
+export interface CommuterRailVehicle {
+  route: CommuterRailRoute;
+  vehicleId?: string;
+  tripId?: string;
+  trainNumber?: string;
+  stop?: CommuterRailStop;
+  lat: number;
+  lon: number;
+  bearing?: number;
+  destination?: string;
+  recordedAt?: string;
+  source: string;
+}
+
+export interface CommuterRailAlert {
+  id: string;
+  header?: string;
+  description?: string;
+  url?: string;
+  effect?: string;
+  activePeriods: { start?: string; end?: string }[];
+  routeIds: string[];
+  stopIds: string[];
+  source: string;
+}
+
+export interface CommuterRailStopsQuery {
+  name?: string;
+}
+
+export interface CommuterRailRouteStopsQuery {
+  route: string;
+}
+
+export interface CommuterRailDeparturesQuery {
+  stop: string;
+  route?: string;
+  limit?: number;
+}
+
+export interface CommuterRailVehiclesQuery {
+  route?: string;
 }

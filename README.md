@@ -93,6 +93,27 @@ When `apiKey` is present, `mta-js` sends requests to the hosted API at
 `https://www.mtaapi.dev` by default. Override `apiBaseUrl` for tests or private
 deployments.
 
+## Regional transit
+
+The hosted API also provides regional methods for PATH, NJ Transit Rail, NYC
+Ferry, Citi Bike, LIRR, and Metro-North:
+
+```js
+const pathArrivals = await mta.path.arrivals({ station: "JSQ", direction: "to-ny" });
+const njDepartures = await mta.njTransit.rail.departures({ station: "NY", limit: 5 });
+const ferryArrivals = await mta.nycFerry.arrivals({ stop: "17", limit: 5 });
+const bikeStations = await mta.citiBike.stations({
+  lat: 40.6924,
+  lon: -73.9873,
+  limit: 5,
+});
+const lirrDepartures = await mta.lirr.departures({ stop: "Penn Station", limit: 5 });
+const metroNorthDepartures = await mta.metroNorth.departures({
+  stop: "Grand Central",
+  limit: 5,
+});
+```
+
 ## Direct MTA Feeds
 
 You can still call MTA realtime feeds directly without the hosted API:
@@ -160,3 +181,33 @@ override them.
 - `mta.routes.list(...)`
 - `mta.stops.byIds(...)`
 - `mta.stops.near(...)`
+- `mta.path.stations()`
+- `mta.path.routes()`
+- `mta.path.arrivals(...)`
+- `mta.path.routeStations(...)`
+- `mta.njTransit.rail.stations(...)`
+- `mta.njTransit.rail.departures(...)`
+- `mta.njTransit.rail.vehicles(...)`
+- `mta.njTransit.rail.alerts(...)`
+- `mta.njTransit.rail.routeStations(...)`
+- `mta.nycFerry.stops()`
+- `mta.nycFerry.routes()`
+- `mta.nycFerry.routeStops(...)`
+- `mta.nycFerry.arrivals(...)`
+- `mta.nycFerry.vehicles(...)`
+- `mta.nycFerry.alerts()`
+- `mta.citiBike.stations(...)`
+- `mta.citiBike.station(...)`
+- `mta.citiBike.alerts()`
+- `mta.lirr.stops(...)`
+- `mta.lirr.routes()`
+- `mta.lirr.routeStops(...)`
+- `mta.lirr.departures(...)`
+- `mta.lirr.vehicles(...)`
+- `mta.lirr.alerts()`
+- `mta.metroNorth.stops(...)`
+- `mta.metroNorth.routes()`
+- `mta.metroNorth.routeStops(...)`
+- `mta.metroNorth.departures(...)`
+- `mta.metroNorth.vehicles(...)`
+- `mta.metroNorth.alerts()`

@@ -10,12 +10,51 @@ import type {
   BusArrivalQuery,
   BusArrivalBoardQuery,
   BusArrivalBoardStop,
+  CitiBikeAlert,
+  CitiBikeStation,
+  CitiBikeStationQuery,
+  CitiBikeStationsQuery,
   BusRouteStopsQuery,
   BusVehicleQuery,
+  CommuterRailAlert,
+  CommuterRailDeparture,
+  CommuterRailDeparturesQuery,
+  CommuterRailRoute,
+  CommuterRailRouteStops,
+  CommuterRailRouteStopsQuery,
+  CommuterRailStop,
+  CommuterRailStopsQuery,
+  CommuterRailVehicle,
+  CommuterRailVehiclesQuery,
   Direction,
   MTAEndpoints,
   MTAOptions,
   NearbyStop,
+  NjTransitRailAlert,
+  NjTransitRailAlertsQuery,
+  NjTransitRailDeparture,
+  NjTransitRailDeparturesQuery,
+  NjTransitRailRouteStations,
+  NjTransitRailRouteStationsQuery,
+  NjTransitRailStation,
+  NjTransitRailStationsQuery,
+  NjTransitRailVehicle,
+  NjTransitRailVehiclesQuery,
+  NycFerryAlert,
+  NycFerryArrival,
+  NycFerryArrivalsQuery,
+  NycFerryRoute,
+  NycFerryRouteStops,
+  NycFerryRouteStopsQuery,
+  NycFerryStop,
+  NycFerryVehicle,
+  NycFerryVehiclesQuery,
+  PathArrival,
+  PathArrivalsQuery,
+  PathRoute,
+  PathRouteStations,
+  PathRouteStationsQuery,
+  PathStation,
   Route,
   RouteCatalogEntry,
   RouteStopsResponse,
@@ -38,6 +77,12 @@ export class MTA {
   static: GTFSCache;
   readonly subway: SubwayClient;
   readonly bus: BusClient;
+  readonly path: PathClient;
+  readonly njTransit: { rail: NjTransitRailClient };
+  readonly nycFerry: NycFerryClient;
+  readonly citiBike: CitiBikeClient;
+  readonly lirr: CommuterRailClient;
+  readonly metroNorth: CommuterRailClient;
   readonly alerts: AlertsClient;
   readonly stops: StopsClient;
   readonly routes: RoutesClient;
@@ -72,6 +117,12 @@ export class MTA {
 
     this.subway = new SubwayClient(this);
     this.bus = new BusClient(this);
+    this.path = new PathClient(this);
+    this.njTransit = { rail: new NjTransitRailClient(this) };
+    this.nycFerry = new NycFerryClient(this);
+    this.citiBike = new CitiBikeClient(this);
+    this.lirr = new CommuterRailClient(this, "/api/v1/lirr");
+    this.metroNorth = new CommuterRailClient(this, "/api/v1/metro-north");
     this.alerts = new AlertsClient(this);
     this.stops = new StopsClient(this);
     this.routes = new RoutesClient(this);
@@ -344,6 +395,137 @@ class BusClient {
   private requireKey() {
     if (!this.mta.busTimeKey) throw new MissingBusTimeKeyError();
     return this.mta.busTimeKey;
+  }
+}
+
+class PathClient {
+  constructor(private readonly mta: MTA) {}
+
+  stations(): Promise<PathStation[]> {
+    return this.mta.hostedJson<PathStation[]>("/api/v1/path/stations");
+  }
+
+  routes(): Promise<PathRoute[]> {
+    return this.mta.hostedJson<PathRoute[]>("/api/v1/path/routes");
+  }
+
+  arrivals(query: PathArrivalsQuery = {}): Promise<PathArrival[]> {
+    return this.mta.hostedJson<PathArrival[]>("/api/v1/path/arrivals", query);
+  }
+
+  routeStations(query: PathRouteStationsQuery): Promise<PathRouteStations> {
+    return this.mta.hostedJson<PathRouteStations>(
+      `/api/v1/path/routes/${encodeURIComponent(query.route)}/stations`,
+      { direction: query.direction },
+    );
+  }
+}
+
+class NjTransitRailClient {
+  constructor(private readonly mta: MTA) {}
+
+  stations(query: NjTransitRailStationsQuery = {}): Promise<NjTransitRailStation[]> {
+    return this.mta.hostedJson<NjTransitRailStation[]>("/api/v1/nj-transit/rail/stations", query);
+  }
+
+  departures(query: NjTransitRailDeparturesQuery): Promise<NjTransitRailDeparture[]> {
+    return this.mta.hostedJson<NjTransitRailDeparture[]>("/api/v1/nj-transit/rail/departures", query);
+  }
+
+  vehicles(query: NjTransitRailVehiclesQuery = {}): Promise<NjTransitRailVehicle[]> {
+    return this.mta.hostedJson<NjTransitRailVehicle[]>("/api/v1/nj-transit/rail/vehicles", query);
+  }
+
+  alerts(query: NjTransitRailAlertsQuery = {}): Promise<NjTransitRailAlert[]> {
+    return this.mta.hostedJson<NjTransitRailAlert[]>("/api/v1/nj-transit/rail/alerts", query);
+  }
+
+  routeStations(query: NjTransitRailRouteStationsQuery): Promise<NjTransitRailRouteStations> {
+    return this.mta.hostedJson<NjTransitRailRouteStations>(
+      `/api/v1/nj-transit/rail/routes/${encodeURIComponent(query.route)}/stations`,
+      { direction: query.direction },
+    );
+  }
+}
+
+class NycFerryClient {
+  constructor(private readonly mta: MTA) {}
+
+  stops(): Promise<NycFerryStop[]> {
+    return this.mta.hostedJson<NycFerryStop[]>("/api/v1/nyc-ferry/stops");
+  }
+
+  routes(): Promise<NycFerryRoute[]> {
+    return this.mta.hostedJson<NycFerryRoute[]>("/api/v1/nyc-ferry/routes");
+  }
+
+  routeStops(query: NycFerryRouteStopsQuery): Promise<NycFerryRouteStops> {
+    return this.mta.hostedJson<NycFerryRouteStops>(
+      `/api/v1/nyc-ferry/routes/${encodeURIComponent(query.route)}/stops`,
+    );
+  }
+
+  arrivals(query: NycFerryArrivalsQuery = {}): Promise<NycFerryArrival[]> {
+    return this.mta.hostedJson<NycFerryArrival[]>("/api/v1/nyc-ferry/arrivals", query);
+  }
+
+  vehicles(query: NycFerryVehiclesQuery = {}): Promise<NycFerryVehicle[]> {
+    return this.mta.hostedJson<NycFerryVehicle[]>("/api/v1/nyc-ferry/vehicles", query);
+  }
+
+  alerts(): Promise<NycFerryAlert[]> {
+    return this.mta.hostedJson<NycFerryAlert[]>("/api/v1/nyc-ferry/alerts");
+  }
+}
+
+class CitiBikeClient {
+  constructor(private readonly mta: MTA) {}
+
+  stations(query: CitiBikeStationsQuery = {}): Promise<CitiBikeStation[]> {
+    return this.mta.hostedJson<CitiBikeStation[]>("/api/v1/citi-bike/stations", query);
+  }
+
+  station(query: CitiBikeStationQuery): Promise<CitiBikeStation> {
+    return this.mta.hostedJson<CitiBikeStation>(
+      `/api/v1/citi-bike/stations/${encodeURIComponent(query.id)}`,
+    );
+  }
+
+  alerts(): Promise<CitiBikeAlert[]> {
+    return this.mta.hostedJson<CitiBikeAlert[]>("/api/v1/citi-bike/alerts");
+  }
+}
+
+class CommuterRailClient {
+  constructor(
+    private readonly mta: MTA,
+    private readonly basePath: string,
+  ) {}
+
+  stops(query: CommuterRailStopsQuery = {}): Promise<CommuterRailStop[]> {
+    return this.mta.hostedJson<CommuterRailStop[]>(`${this.basePath}/stops`, query);
+  }
+
+  routes(): Promise<CommuterRailRoute[]> {
+    return this.mta.hostedJson<CommuterRailRoute[]>(`${this.basePath}/routes`);
+  }
+
+  routeStops(query: CommuterRailRouteStopsQuery): Promise<CommuterRailRouteStops> {
+    return this.mta.hostedJson<CommuterRailRouteStops>(
+      `${this.basePath}/routes/${encodeURIComponent(query.route)}/stops`,
+    );
+  }
+
+  departures(query: CommuterRailDeparturesQuery): Promise<CommuterRailDeparture[]> {
+    return this.mta.hostedJson<CommuterRailDeparture[]>(`${this.basePath}/departures`, query);
+  }
+
+  vehicles(query: CommuterRailVehiclesQuery = {}): Promise<CommuterRailVehicle[]> {
+    return this.mta.hostedJson<CommuterRailVehicle[]>(`${this.basePath}/vehicles`, query);
+  }
+
+  alerts(): Promise<CommuterRailAlert[]> {
+    return this.mta.hostedJson<CommuterRailAlert[]>(`${this.basePath}/alerts`);
   }
 }
 

@@ -93,6 +93,28 @@ const staticData = {
   ],
 };
 
+function createHostedTestClient() {
+  const requests: Request[] = [];
+  const mta = new MTA({
+    apiKey: "regional-key",
+    apiBaseUrl: "https://api.example.com",
+    fetch: (async (input, init) => {
+      const request = input instanceof Request ? new Request(input, init) : new Request(String(input), init);
+      requests.push(request);
+      return Response.json([]);
+    }) as typeof fetch,
+  });
+
+  return { mta, requests };
+}
+
+function expectRegionalBearerHeaders(requests: Request[]) {
+  expect(requests.length).toBeGreaterThanOrEqual(2);
+  for (const request of requests) {
+    expect(request.headers.get("authorization")).toBe("Bearer regional-key");
+  }
+}
+
 test("hosted API calls include bearer and x-api-key auth headers", async () => {
   let request: Request | undefined;
   const mta = new MTA({
@@ -624,6 +646,126 @@ test("reimporting a stop removes stale parent station links", () => {
 
   expect(mta.static.getStopIdsForQuery("P1")).not.toContain("C1");
   expect(mta.static.getStopIdsForQuery("P2")).toContain("C1");
+});
+
+test("hosted PATH methods use exact URLs and bearer auth", async () => {
+  const { mta, requests } = createHostedTestClient();
+
+  await mta.path.stations();
+  await mta.path.arrivals({
+    station: "JSQ",
+    route: "JSQ-33",
+    direction: "to-ny",
+    limit: 5,
+    includeRaw: true,
+  });
+  await mta.path.routeStations({ route: "JSQ/33", direction: "east" });
+
+  expect(requests.map((request) => request.url)).toEqual([
+    "https://api.example.com/api/v1/path/stations",
+    "https://api.example.com/api/v1/path/arrivals?station=JSQ&route=JSQ-33&direction=to-ny&limit=5&includeRaw=true",
+    "https://api.example.com/api/v1/path/routes/JSQ%2F33/stations?direction=east",
+  ]);
+  expect(new URL(requests[2]?.url ?? "").searchParams.has("route")).toBe(false);
+  expectRegionalBearerHeaders(requests);
+});
+
+test("hosted NJ Transit rail methods use exact URLs and bearer auth", async () => {
+  const { mta, requests } = createHostedTestClient();
+
+  await mta.njTransit.rail.stations({ includeRaw: true });
+  await mta.njTransit.rail.departures({
+    station: "NY",
+    line: "NEC",
+    includeStops: true,
+    limit: 5,
+    includeRaw: true,
+  });
+  await mta.njTransit.rail.routeStations({ route: "NEC/Coast", direction: "east" });
+
+  expect(requests.map((request) => request.url)).toEqual([
+    "https://api.example.com/api/v1/nj-transit/rail/stations?includeRaw=true",
+    "https://api.example.com/api/v1/nj-transit/rail/departures?station=NY&line=NEC&includeStops=true&limit=5&includeRaw=true",
+    "https://api.example.com/api/v1/nj-transit/rail/routes/NEC%2FCoast/stations?direction=east",
+  ]);
+  expect(new URL(requests[2]?.url ?? "").searchParams.has("route")).toBe(false);
+  expectRegionalBearerHeaders(requests);
+});
+
+test("hosted NYC Ferry methods use exact URLs and bearer auth", async () => {
+  const { mta, requests } = createHostedTestClient();
+
+  await mta.nycFerry.stops();
+  await mta.nycFerry.arrivals({ stop: "Wall St/Pier 11", route: "ER", limit: 5 });
+  await mta.nycFerry.routeStops({ route: "ER/1" });
+
+  expect(requests.map((request) => request.url)).toEqual([
+    "https://api.example.com/api/v1/nyc-ferry/stops",
+    "https://api.example.com/api/v1/nyc-ferry/arrivals?stop=Wall+St%2FPier+11&route=ER&limit=5",
+    "https://api.example.com/api/v1/nyc-ferry/routes/ER%2F1/stops",
+  ]);
+  expect(new URL(requests[2]?.url ?? "").searchParams.has("route")).toBe(false);
+  expectRegionalBearerHeaders(requests);
+});
+
+test("hosted Citi Bike methods use exact URLs and bearer auth", async () => {
+  const { mta, requests } = createHostedTestClient();
+
+  await mta.citiBike.stations({
+    lat: 40.6924,
+    lon: -73.9873,
+    radius: 500,
+    limit: 5,
+    minBikes: 3,
+    minDocks: 2,
+    ebike: true,
+  });
+  await mta.citiBike.station({ id: "JC/003" });
+
+  expect(requests.map((request) => request.url)).toEqual([
+    "https://api.example.com/api/v1/citi-bike/stations?lat=40.6924&lon=-73.9873&radius=500&limit=5&minBikes=3&minDocks=2&ebike=true",
+    "https://api.example.com/api/v1/citi-bike/stations/JC%2F003",
+  ]);
+  expect(new URL(requests[1]?.url ?? "").search).toBe("");
+  expectRegionalBearerHeaders(requests);
+});
+
+test("hosted LIRR methods use exact URLs and bearer auth", async () => {
+  const { mta, requests } = createHostedTestClient();
+
+  await mta.lirr.stops({ name: "Penn Station" });
+  await mta.lirr.departures({ stop: "Penn Station", route: "1", limit: 5 });
+  await mta.lirr.routeStops({ route: "Babylon/Branch" });
+
+  expect(requests.map((request) => request.url)).toEqual([
+    "https://api.example.com/api/v1/lirr/stops?name=Penn+Station",
+    "https://api.example.com/api/v1/lirr/departures?stop=Penn+Station&route=1&limit=5",
+    "https://api.example.com/api/v1/lirr/routes/Babylon%2FBranch/stops",
+  ]);
+  expect(new URL(requests[2]?.url ?? "").searchParams.has("route")).toBe(false);
+  expectRegionalBearerHeaders(requests);
+});
+
+test("hosted Metro-North methods use exact URLs and bearer auth", async () => {
+  const { mta, requests } = createHostedTestClient();
+
+  await mta.metroNorth.routes();
+  await mta.metroNorth.departures({ stop: "Grand Central", limit: 2 });
+  await mta.metroNorth.routeStops({ route: "Hudson/Line" });
+
+  expect(requests.map((request) => request.url)).toEqual([
+    "https://api.example.com/api/v1/metro-north/routes",
+    "https://api.example.com/api/v1/metro-north/departures?stop=Grand+Central&limit=2",
+    "https://api.example.com/api/v1/metro-north/routes/Hudson%2FLine/stops",
+  ]);
+  expect(new URL(requests[2]?.url ?? "").searchParams.has("route")).toBe(false);
+  expectRegionalBearerHeaders(requests);
+});
+
+test("hosted regional calls require an apiKey", async () => {
+  const mta = new MTA();
+
+  await expect(mta.path.stations()).rejects.toThrow("mta-js hosted API calls require an apiKey.");
 });
 
 test("parseGtfsZip parses static GTFS csv files into a seed", () => {
