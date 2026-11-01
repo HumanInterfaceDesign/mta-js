@@ -33,9 +33,23 @@ describe.skipIf(!apiKey)("hosted integration tests", () => {
       destination: "Union Sq",
     });
 
+    const pathStations = await mta.path.stations();
+    const bikeStations = await mta.citiBike.stations({
+      lat: 40.6924,
+      lon: -73.9873,
+      limit: 1,
+    });
+    const lirrDepartures = await mta.lirr.departures({
+      stop: "Penn Station",
+      limit: 1,
+    });
+
     expect(Array.isArray(arrivals)).toBe(true);
     expect(Array.isArray(stops)).toBe(true);
     expect(Array.isArray(vehicles)).toBe(true);
+    expect(Array.isArray(pathStations)).toBe(true);
+    expect(Array.isArray(bikeStations)).toBe(true);
+    expect(Array.isArray(lirrDepartures)).toBe(true);
     expect(typeof direction.resolved).toBe("boolean");
     expect(stops.length).toBeGreaterThan(0);
     expect(stops.every((stop) => stop.routeMatch)).toBe(true);
