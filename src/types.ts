@@ -714,8 +714,8 @@ export interface CitiBikeStation {
   isReturning: boolean;
   lastReported?: string;
   distanceMeters?: number;
-  mode: "citi-bike";
-  source: "citi-bike-gbfs";
+  mode: "citi-bike" | "bay-wheels" | "divvy" | "bluebikes";
+  source: "citi-bike-gbfs" | "bay-wheels-gbfs" | "divvy-gbfs" | "bluebikes-gbfs";
 }
 
 export interface CitiBikeAlert {
@@ -728,8 +728,8 @@ export interface CitiBikeAlert {
   url?: string;
   times: { start?: string; end?: string }[];
   lastUpdated?: string;
-  mode: "citi-bike";
-  source: "citi-bike-gbfs";
+  mode: "citi-bike" | "bay-wheels" | "divvy" | "bluebikes";
+  source: "citi-bike-gbfs" | "bay-wheels-gbfs" | "divvy-gbfs" | "bluebikes-gbfs";
 }
 
 export interface CitiBikeStationsQuery {

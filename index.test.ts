@@ -1,7 +1,13 @@
 import { expect, test } from "bun:test";
 import { strToU8, zipSync } from "fflate";
 
-import { encodeFeedMessage, MTA, StaticDataMissingError } from "./index";
+import {
+  encodeFeedMessage,
+  MTA,
+  StaticDataMissingError,
+  type CitiBikeAlert,
+  type CitiBikeStation,
+} from "./index";
 import { parseGtfsZip } from "./src/static-gtfs";
 
 const staticData = {
@@ -786,6 +792,37 @@ test("hosted regional bike methods use exact URLs", async () => {
     "https://api.example.com/api/v1/bay-wheels/stations/sf123",
   ]);
   expectRegionalBearerHeaders(requests);
+});
+
+test("regional bike share response types accept hosted systems", () => {
+  const station: CitiBikeStation = {
+    id: "sf123",
+    name: "Market St",
+    lat: 37.77,
+    lon: -122.42,
+    bikesAvailable: 3,
+    ebikesAvailable: 1,
+    classicBikesAvailable: 2,
+    docksAvailable: 5,
+    bikesDisabled: 0,
+    docksDisabled: 0,
+    isInstalled: true,
+    isRenting: true,
+    isReturning: true,
+    mode: "bay-wheels",
+    source: "bay-wheels-gbfs",
+  };
+  const alert: CitiBikeAlert = {
+    id: "alert-1",
+    stationIds: [],
+    regionIds: [],
+    times: [],
+    mode: "bluebikes",
+    source: "bluebikes-gbfs",
+  };
+
+  expect(station.mode).toBe("bay-wheels");
+  expect(alert.source).toBe("bluebikes-gbfs");
 });
 
 test("hosted regional calls require an apiKey", async () => {
