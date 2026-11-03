@@ -26,8 +26,7 @@ export type StopMode =
   | "nj-transit-rail"
   | "nyc-ferry"
   | "lirr"
-  | "metro-north"
-  | "mbta";
+  | "metro-north";
 
 export type Direction = "north" | "south" | "east" | "west" | "unknown";
 export type SubwayResolvedDirection = "north" | "south";
