@@ -19,7 +19,14 @@ export type SubwayStopId = AutocompleteString<KnownSubwayStopId>;
 export type BusStopId = AutocompleteString<KnownBusStopId>;
 
 export type TransitMode = "subway" | "bus" | "lirr" | "metro-north";
-export type StopMode = "subway" | "bus" | "path" | "nj-transit-rail" | "nyc-ferry" | "lirr" | "metro-north";
+export type StopMode =
+  | "subway"
+  | "bus"
+  | "path"
+  | "nj-transit-rail"
+  | "nyc-ferry"
+  | "lirr"
+  | "metro-north";
 
 export type Direction = "north" | "south" | "east" | "west" | "unknown";
 export type SubwayResolvedDirection = "north" | "south";
@@ -364,7 +371,16 @@ export interface BusRouteStopsQuery {
 }
 
 export type RegionalMode = "subway" | "bus" | "path" | "nj-transit-rail" | "nyc-ferry" | "lirr" | "metro-north";
-export type CommuterRailMode = "lirr" | "metro-north";
+export type CommuterRailMode =
+  | "lirr"
+  | "metro-north"
+  | "mbta"
+  | "bart"
+  | "king-county-metro"
+  | "capmetro"
+  | "pace"
+  | "tri-rail"
+  | "brightline";
 export type HostedArrivalDirection = "north" | "south" | "east" | "west" | "unknown" | "uptown" | "downtown";
 
 export interface PathStation {
@@ -698,8 +714,8 @@ export interface CitiBikeStation {
   isReturning: boolean;
   lastReported?: string;
   distanceMeters?: number;
-  mode: "citi-bike";
-  source: "citi-bike-gbfs";
+  mode: "citi-bike" | "bay-wheels" | "divvy" | "bluebikes";
+  source: "citi-bike-gbfs" | "bay-wheels-gbfs" | "divvy-gbfs" | "bluebikes-gbfs";
 }
 
 export interface CitiBikeAlert {
@@ -712,8 +728,8 @@ export interface CitiBikeAlert {
   url?: string;
   times: { start?: string; end?: string }[];
   lastUpdated?: string;
-  mode: "citi-bike";
-  source: "citi-bike-gbfs";
+  mode: "citi-bike" | "bay-wheels" | "divvy" | "bluebikes";
+  source: "citi-bike-gbfs" | "bay-wheels-gbfs" | "divvy-gbfs" | "bluebikes-gbfs";
 }
 
 export interface CitiBikeStationsQuery {
@@ -736,13 +752,16 @@ export interface CommuterRailStop {
   name: string;
   lat: number;
   lon: number;
+  parentStation?: string;
   mode: CommuterRailMode;
 }
 
 export interface CommuterRailRoute {
   id: string;
   name: string;
+  shortName?: string;
   color?: string;
+  type?: number;
   mode: CommuterRailMode;
 }
 

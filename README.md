@@ -96,7 +96,8 @@ deployments.
 ## Regional transit
 
 The hosted API also provides regional methods for PATH, NJ Transit Rail, NYC
-Ferry, Citi Bike, LIRR, and Metro-North:
+Ferry, Citi Bike, LIRR, Metro-North, MBTA, BART, King County Metro, CapMetro,
+Pace, Tri-Rail, Brightline, Bay Wheels, Divvy, and Bluebikes:
 
 ```js
 const pathArrivals = await mta.path.arrivals({ station: "JSQ", direction: "to-ny" });
@@ -211,3 +212,54 @@ override them.
 - `mta.metroNorth.departures(...)`
 - `mta.metroNorth.vehicles(...)`
 - `mta.metroNorth.alerts()`
+- `mta.mbta.stops(...)`
+- `mta.mbta.routes()`
+- `mta.mbta.routeStops(...)`
+- `mta.mbta.departures(...)`
+- `mta.mbta.vehicles(...)`
+- `mta.mbta.alerts()`
+- `mta.bart.stops(...)`
+- `mta.bart.routes()`
+- `mta.bart.routeStops(...)`
+- `mta.bart.departures(...)`
+- `mta.bart.vehicles(...)`
+- `mta.bart.alerts()`
+- `mta.kingCountyMetro.stops(...)`
+- `mta.kingCountyMetro.routes()`
+- `mta.kingCountyMetro.routeStops(...)`
+- `mta.kingCountyMetro.departures(...)`
+- `mta.kingCountyMetro.vehicles(...)`
+- `mta.kingCountyMetro.alerts()`
+- `mta.capMetro.stops(...)`
+- `mta.capMetro.routes()`
+- `mta.capMetro.routeStops(...)`
+- `mta.capMetro.departures(...)`
+- `mta.capMetro.vehicles(...)`
+- `mta.capMetro.alerts()`
+- `mta.pace.stops(...)`
+- `mta.pace.routes()`
+- `mta.pace.routeStops(...)`
+- `mta.pace.departures(...)`
+- `mta.pace.vehicles(...)`
+- `mta.pace.alerts()`
+- `mta.triRail.stops(...)`
+- `mta.triRail.routes()`
+- `mta.triRail.routeStops(...)`
+- `mta.triRail.departures(...)`
+- `mta.triRail.vehicles(...)`
+- `mta.triRail.alerts()`
+- `mta.brightline.stops(...)`
+- `mta.brightline.routes()`
+- `mta.brightline.routeStops(...)`
+- `mta.brightline.departures(...)`
+- `mta.brightline.vehicles(...)`
+- `mta.brightline.alerts()`
+- `mta.bayWheels.stations(...)`
+- `mta.bayWheels.station(...)`
+- `mta.bayWheels.alerts()`
+- `mta.divvy.stations(...)`
+- `mta.divvy.station(...)`
+- `mta.divvy.alerts()`
+- `mta.bluebikes.stations(...)`
+- `mta.bluebikes.station(...)`
+- `mta.bluebikes.alerts()`
