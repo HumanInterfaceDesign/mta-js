@@ -759,6 +759,7 @@ export interface CommuterRailStop {
 export interface CommuterRailRoute {
   id: string;
   name: string;
+  shortName?: string;
   color?: string;
   type?: number;
   mode: CommuterRailMode;

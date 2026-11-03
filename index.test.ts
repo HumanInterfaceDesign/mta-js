@@ -7,6 +7,7 @@ import {
   StaticDataMissingError,
   type CitiBikeAlert,
   type CitiBikeStation,
+  type CommuterRailRoute,
 } from "./index";
 import { parseGtfsZip } from "./src/static-gtfs";
 
@@ -823,6 +824,17 @@ test("regional bike share response types accept hosted systems", () => {
 
   expect(station.mode).toBe("bay-wheels");
   expect(alert.source).toBe("bluebikes-gbfs");
+});
+
+test("commuter rail route response types include public short names", () => {
+  const route: CommuterRailRoute = {
+    id: "100001",
+    name: "Frequent Local",
+    shortName: "1",
+    mode: "king-county-metro",
+  };
+
+  expect(route.shortName).toBe("1");
 });
 
 test("hosted regional calls require an apiKey", async () => {
