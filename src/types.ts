@@ -19,7 +19,15 @@ export type SubwayStopId = AutocompleteString<KnownSubwayStopId>;
 export type BusStopId = AutocompleteString<KnownBusStopId>;
 
 export type TransitMode = "subway" | "bus" | "lirr" | "metro-north";
-export type StopMode = "subway" | "bus" | "path" | "nj-transit-rail" | "nyc-ferry" | "lirr" | "metro-north";
+export type StopMode =
+  | "subway"
+  | "bus"
+  | "path"
+  | "nj-transit-rail"
+  | "nyc-ferry"
+  | "lirr"
+  | "metro-north"
+  | "mbta";
 
 export type Direction = "north" | "south" | "east" | "west" | "unknown";
 export type SubwayResolvedDirection = "north" | "south";
@@ -364,7 +372,16 @@ export interface BusRouteStopsQuery {
 }
 
 export type RegionalMode = "subway" | "bus" | "path" | "nj-transit-rail" | "nyc-ferry" | "lirr" | "metro-north";
-export type CommuterRailMode = "lirr" | "metro-north";
+export type CommuterRailMode =
+  | "lirr"
+  | "metro-north"
+  | "mbta"
+  | "bart"
+  | "king-county-metro"
+  | "capmetro"
+  | "pace"
+  | "tri-rail"
+  | "brightline";
 export type HostedArrivalDirection = "north" | "south" | "east" | "west" | "unknown" | "uptown" | "downtown";
 
 export interface PathStation {
@@ -736,6 +753,7 @@ export interface CommuterRailStop {
   name: string;
   lat: number;
   lon: number;
+  parentStation?: string;
   mode: CommuterRailMode;
 }
 
@@ -743,6 +761,7 @@ export interface CommuterRailRoute {
   id: string;
   name: string;
   color?: string;
+  type?: number;
   mode: CommuterRailMode;
 }
 

@@ -81,8 +81,18 @@ export class MTA {
   readonly njTransit: { rail: NjTransitRailClient };
   readonly nycFerry: NycFerryClient;
   readonly citiBike: CitiBikeClient;
+  readonly bayWheels: CitiBikeClient;
+  readonly divvy: CitiBikeClient;
+  readonly bluebikes: CitiBikeClient;
   readonly lirr: CommuterRailClient;
   readonly metroNorth: CommuterRailClient;
+  readonly mbta: CommuterRailClient;
+  readonly bart: CommuterRailClient;
+  readonly kingCountyMetro: CommuterRailClient;
+  readonly capMetro: CommuterRailClient;
+  readonly pace: CommuterRailClient;
+  readonly triRail: CommuterRailClient;
+  readonly brightline: CommuterRailClient;
   readonly alerts: AlertsClient;
   readonly stops: StopsClient;
   readonly routes: RoutesClient;
@@ -120,9 +130,19 @@ export class MTA {
     this.path = new PathClient(this);
     this.njTransit = { rail: new NjTransitRailClient(this) };
     this.nycFerry = new NycFerryClient(this);
-    this.citiBike = new CitiBikeClient(this);
+    this.citiBike = new CitiBikeClient(this, "/api/v1/citi-bike");
+    this.bayWheels = new CitiBikeClient(this, "/api/v1/bay-wheels");
+    this.divvy = new CitiBikeClient(this, "/api/v1/divvy");
+    this.bluebikes = new CitiBikeClient(this, "/api/v1/bluebikes");
     this.lirr = new CommuterRailClient(this, "/api/v1/lirr");
     this.metroNorth = new CommuterRailClient(this, "/api/v1/metro-north");
+    this.mbta = new CommuterRailClient(this, "/api/v1/mbta");
+    this.bart = new CommuterRailClient(this, "/api/v1/bart");
+    this.kingCountyMetro = new CommuterRailClient(this, "/api/v1/king-county-metro");
+    this.capMetro = new CommuterRailClient(this, "/api/v1/capmetro");
+    this.pace = new CommuterRailClient(this, "/api/v1/pace");
+    this.triRail = new CommuterRailClient(this, "/api/v1/tri-rail");
+    this.brightline = new CommuterRailClient(this, "/api/v1/brightline");
     this.alerts = new AlertsClient(this);
     this.stops = new StopsClient(this);
     this.routes = new RoutesClient(this);
@@ -479,20 +499,23 @@ class NycFerryClient {
 }
 
 class CitiBikeClient {
-  constructor(private readonly mta: MTA) {}
+  constructor(
+    private readonly mta: MTA,
+    private readonly basePath: string,
+  ) {}
 
   stations(query: CitiBikeStationsQuery = {}): Promise<CitiBikeStation[]> {
-    return this.mta.hostedJson<CitiBikeStation[]>("/api/v1/citi-bike/stations", query);
+    return this.mta.hostedJson<CitiBikeStation[]>(`${this.basePath}/stations`, query);
   }
 
   station(query: CitiBikeStationQuery): Promise<CitiBikeStation> {
     return this.mta.hostedJson<CitiBikeStation>(
-      `/api/v1/citi-bike/stations/${encodeURIComponent(query.id)}`,
+      `${this.basePath}/stations/${encodeURIComponent(query.id)}`,
     );
   }
 
   alerts(): Promise<CitiBikeAlert[]> {
-    return this.mta.hostedJson<CitiBikeAlert[]>("/api/v1/citi-bike/alerts");
+    return this.mta.hostedJson<CitiBikeAlert[]>(`${this.basePath}/alerts`);
   }
 }
 

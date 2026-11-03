@@ -762,6 +762,32 @@ test("hosted Metro-North methods use exact URLs and bearer auth", async () => {
   expectRegionalBearerHeaders(requests);
 });
 
+test("hosted regional rail methods use exact URLs", async () => {
+  const { mta, requests } = createHostedTestClient();
+
+  await mta.mbta.routes();
+  await mta.mbta.departures({ stop: "place-pktrm", limit: 5 });
+
+  expect(requests.map((request) => request.url)).toEqual([
+    "https://api.example.com/api/v1/mbta/routes",
+    "https://api.example.com/api/v1/mbta/departures?stop=place-pktrm&limit=5",
+  ]);
+  expectRegionalBearerHeaders(requests);
+});
+
+test("hosted regional bike methods use exact URLs", async () => {
+  const { mta, requests } = createHostedTestClient();
+
+  await mta.bayWheels.stations({ lat: 37.77, lon: -122.42, limit: 5 });
+  await mta.bayWheels.station({ id: "sf123" });
+
+  expect(requests.map((request) => request.url)).toEqual([
+    "https://api.example.com/api/v1/bay-wheels/stations?lat=37.77&lon=-122.42&limit=5",
+    "https://api.example.com/api/v1/bay-wheels/stations/sf123",
+  ]);
+  expectRegionalBearerHeaders(requests);
+});
+
 test("hosted regional calls require an apiKey", async () => {
   const mta = new MTA();
 
