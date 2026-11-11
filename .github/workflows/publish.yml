@@ -3,13 +3,16 @@ name: Publish Package
 on:
   workflow_dispatch:
   push:
-    tags:
-      - "v*"
-      - "[0-9]*"
+    branches:
+      - main
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -19,22 +22,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Check for unpublished version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          NAME=$(node -p "require('./package.json').name")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION is already on npm; skipping release."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Bun
+        if: steps.version.outputs.publish == 'true'
         uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
+        if: steps.version.outputs.publish == 'true'
         run: bun install --frozen-lockfile
 
       - name: Test
+        if: steps.version.outputs.publish == 'true'
         run: bun test
 
       - name: Typecheck
+        if: steps.version.outputs.publish == 'true'
         run: bun run typecheck
 
       - name: Pack dry run
+        if: steps.version.outputs.publish == 'true'
         run: bun pm pack --dry-run
 
       - name: Set up Node for npm publishing
+        if: steps.version.outputs.publish == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: "24"
@@ -42,4 +64,12 @@ jobs:
           package-manager-cache: false
 
       - name: Publish to npm
+        if: steps.version.outputs.publish == 'true'
         run: npm publish
+
+      - name: Tag and create GitHub release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.version.outputs.version }}
+        run: gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --generate-notes
