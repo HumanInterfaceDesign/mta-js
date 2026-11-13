@@ -380,7 +380,18 @@ export type CommuterRailMode =
   | "capmetro"
   | "pace"
   | "tri-rail"
-  | "brightline";
+  | "brightline"
+  | "rtd"
+  | "metro-transit"
+  | "prt"
+  | "marta"
+  | "via"
+  | "gcrta"
+  | "cats"
+  | "sacrt"
+  | "marc"
+  | "uta"
+  | "jta";
 export type HostedArrivalDirection = "north" | "south" | "east" | "west" | "unknown" | "uptown" | "downtown";
 
 export interface PathStation {
@@ -714,8 +725,24 @@ export interface CitiBikeStation {
   isReturning: boolean;
   lastReported?: string;
   distanceMeters?: number;
-  mode: "citi-bike" | "bay-wheels" | "divvy" | "bluebikes";
-  source: "citi-bike-gbfs" | "bay-wheels-gbfs" | "divvy-gbfs" | "bluebikes-gbfs";
+  mode:
+    | "citi-bike"
+    | "bay-wheels"
+    | "divvy"
+    | "bluebikes"
+    | "capital-bikeshare"
+    | "biketown"
+    | "indego"
+    | "metro-bike-share";
+  source:
+    | "citi-bike-gbfs"
+    | "bay-wheels-gbfs"
+    | "divvy-gbfs"
+    | "bluebikes-gbfs"
+    | "capital-bikeshare-gbfs"
+    | "biketown-gbfs"
+    | "indego-gbfs"
+    | "metro-bike-share-gbfs";
 }
 
 export interface CitiBikeAlert {
@@ -728,8 +755,24 @@ export interface CitiBikeAlert {
   url?: string;
   times: { start?: string; end?: string }[];
   lastUpdated?: string;
-  mode: "citi-bike" | "bay-wheels" | "divvy" | "bluebikes";
-  source: "citi-bike-gbfs" | "bay-wheels-gbfs" | "divvy-gbfs" | "bluebikes-gbfs";
+  mode:
+    | "citi-bike"
+    | "bay-wheels"
+    | "divvy"
+    | "bluebikes"
+    | "capital-bikeshare"
+    | "biketown"
+    | "indego"
+    | "metro-bike-share";
+  source:
+    | "citi-bike-gbfs"
+    | "bay-wheels-gbfs"
+    | "divvy-gbfs"
+    | "bluebikes-gbfs"
+    | "capital-bikeshare-gbfs"
+    | "biketown-gbfs"
+    | "indego-gbfs"
+    | "metro-bike-share-gbfs";
 }
 
 export interface CitiBikeStationsQuery {
