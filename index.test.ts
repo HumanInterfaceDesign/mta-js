@@ -782,6 +782,35 @@ test("hosted regional rail methods use exact URLs", async () => {
   expectRegionalBearerHeaders(requests);
 });
 
+test("hosted new commuter rail clients use exact URLs", async () => {
+  const { mta, requests } = createHostedTestClient();
+  const clients = [
+    [mta.rtd, "rtd"],
+    [mta.metroTransit, "metro-transit"],
+    [mta.prt, "prt"],
+    [mta.marta, "marta"],
+    [mta.via, "via"],
+    [mta.gcrta, "gcrta"],
+    [mta.cats, "cats"],
+    [mta.sacrt, "sacrt"],
+    [mta.marc, "marc"],
+    [mta.uta, "uta"],
+    [mta.jta, "jta"],
+  ] as const;
+
+  for (const [client] of clients) {
+    await client.departures({ stop: "station", limit: 3 });
+  }
+
+  expect(requests.map((request) => request.url)).toEqual(
+    clients.map(
+      ([, slug]) =>
+        `https://api.example.com/api/v1/${slug}/departures?stop=station&limit=3`,
+    ),
+  );
+  expectRegionalBearerHeaders(requests);
+});
+
 test("hosted regional bike methods use exact URLs", async () => {
   const { mta, requests } = createHostedTestClient();
 
@@ -792,6 +821,29 @@ test("hosted regional bike methods use exact URLs", async () => {
     "https://api.example.com/api/v1/bay-wheels/stations?lat=37.77&lon=-122.42&limit=5",
     "https://api.example.com/api/v1/bay-wheels/stations/sf123",
   ]);
+  expectRegionalBearerHeaders(requests);
+});
+
+test("hosted new bike share clients use exact URLs", async () => {
+  const { mta, requests } = createHostedTestClient();
+  const clients = [
+    [mta.capitalBikeshare, "capital-bikeshare"],
+    [mta.biketown, "biketown"],
+    [mta.indego, "indego"],
+    [mta.metroBikeShare, "metro-bike-share"],
+  ] as const;
+
+  for (const [client] of clients) {
+    await client.stations({ lat: 41.88, lon: -87.63, limit: 5 });
+    await client.station({ id: "X" });
+  }
+
+  expect(requests.map((request) => request.url)).toEqual(
+    clients.flatMap(([, slug]) => [
+      `https://api.example.com/api/v1/${slug}/stations?lat=41.88&lon=-87.63&limit=5`,
+      `https://api.example.com/api/v1/${slug}/stations/X`,
+    ]),
+  );
   expectRegionalBearerHeaders(requests);
 });
 
