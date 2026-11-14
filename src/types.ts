@@ -393,7 +393,15 @@ export type CommuterRailMode =
   | "uta"
   | "jta"
   | "muni"
-  | "caltrain";
+  | "caltrain"
+  | "wmata-rail"
+  | "wmata-bus"
+  | "sound-transit"
+  | "houston-metro"
+  | "sdmts"
+  | "metra"
+  | "trimet"
+  | "metrolink";
 export type HostedArrivalDirection = "north" | "south" | "east" | "west" | "unknown" | "uptown" | "downtown";
 
 export interface PathStation {
