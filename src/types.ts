@@ -391,7 +391,9 @@ export type CommuterRailMode =
   | "sacrt"
   | "marc"
   | "uta"
-  | "jta";
+  | "jta"
+  | "muni"
+  | "caltrain";
 export type HostedArrivalDirection = "north" | "south" | "east" | "west" | "unknown" | "uptown" | "downtown";
 
 export interface PathStation {

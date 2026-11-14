@@ -796,6 +796,8 @@ test("hosted new commuter rail clients use exact URLs", async () => {
     [mta.marc, "marc"],
     [mta.uta, "uta"],
     [mta.jta, "jta"],
+    [mta.muni, "muni"],
+    [mta.caltrain, "caltrain"],
   ] as const;
 
   for (const [client] of clients) {

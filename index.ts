@@ -108,6 +108,8 @@ export class MTA {
   readonly marc: CommuterRailClient;
   readonly uta: CommuterRailClient;
   readonly jta: CommuterRailClient;
+  readonly muni: CommuterRailClient;
+  readonly caltrain: CommuterRailClient;
   readonly alerts: AlertsClient;
   readonly stops: StopsClient;
   readonly routes: RoutesClient;
@@ -173,6 +175,8 @@ export class MTA {
     this.marc = new CommuterRailClient(this, "/api/v1/marc");
     this.uta = new CommuterRailClient(this, "/api/v1/uta");
     this.jta = new CommuterRailClient(this, "/api/v1/jta");
+    this.muni = new CommuterRailClient(this, "/api/v1/muni");
+    this.caltrain = new CommuterRailClient(this, "/api/v1/caltrain");
     this.alerts = new AlertsClient(this);
     this.stops = new StopsClient(this);
     this.routes = new RoutesClient(this);
