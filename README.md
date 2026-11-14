@@ -98,8 +98,9 @@ deployments.
 The hosted API also provides regional methods for PATH, NJ Transit Rail, NYC
 Ferry, Citi Bike, LIRR, Metro-North, MBTA, BART, King County Metro, CapMetro,
 Pace, Tri-Rail, Brightline, Denver RTD, Metro Transit, Pittsburgh Regional
-Transit, MARTA, VIA, GCRTA, CATS, SacRT, MARC, UTA, JTA, Bay Wheels, Divvy,
-Bluebikes, Capital Bikeshare, Biketown, Indego, and Metro Bike Share:
+Transit, MARTA, VIA, GCRTA, CATS, SacRT, MARC, UTA, JTA, Muni, Caltrain, Bay
+Wheels, Divvy, Bluebikes, Capital Bikeshare, Biketown, Indego, and Metro Bike
+Share:
 
 ```js
 const pathArrivals = await mta.path.arrivals({ station: "JSQ", direction: "to-ny" });
@@ -116,6 +117,11 @@ const metroNorthDepartures = await mta.metroNorth.departures({
   limit: 5,
 });
 const rtdRoutes = await mta.rtd.routes();
+const muniRoutes = await mta.muni.routes();
+const caltrainDepartures = await mta.caltrain.departures({
+  stop: "San Francisco Caltrain Station",
+  limit: 5,
+});
 const divvyStations = await mta.divvy.stations({
   lat: 41.88,
   lon: -87.63,
