@@ -912,3 +912,23 @@ test("parseGtfsZip parses static GTFS csv files into a seed", () => {
     stopTimes: [{ trip_id: "L-trip", stop_id: "L08" }],
   });
 });
+
+test("constructs hosted clients for the newly added transit systems", async () => {
+  const { mta, requests } = createHostedTestClient();
+  const clients = [
+    [mta.wmataRail, "wmata-rail"],
+    [mta.wmataBus, "wmata-bus"],
+    [mta.soundTransit, "sound-transit"],
+    [mta.houstonMetro, "houston-metro"],
+    [mta.sdmts, "sdmts"],
+    [mta.metra, "metra"],
+    [mta.trimet, "trimet"],
+    [mta.metrolink, "metrolink"],
+  ] as const;
+
+  for (const [client, slug] of clients) await client.stops();
+
+  expect(requests.map((request) => new URL(request.url).pathname)).toEqual(
+    clients.map(([, slug]) => `/api/v1/${slug}/stops`),
+  );
+});

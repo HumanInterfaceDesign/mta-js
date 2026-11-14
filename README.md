@@ -98,9 +98,10 @@ deployments.
 The hosted API also provides regional methods for PATH, NJ Transit Rail, NYC
 Ferry, Citi Bike, LIRR, Metro-North, MBTA, BART, King County Metro, CapMetro,
 Pace, Tri-Rail, Brightline, Denver RTD, Metro Transit, Pittsburgh Regional
-Transit, MARTA, VIA, GCRTA, CATS, SacRT, MARC, UTA, JTA, Muni, Caltrain, Bay
-Wheels, Divvy, Bluebikes, Capital Bikeshare, Biketown, Indego, and Metro Bike
-Share:
+Transit, MARTA, VIA, GCRTA, CATS, SacRT, MARC, UTA, JTA, Muni, Caltrain,
+WMATA Metrorail, WMATA Metrobus, Sound Transit, Houston METRO, San Diego MTS,
+Metra, TriMet, Metrolink, Bay Wheels, Divvy, Bluebikes, Capital Bikeshare,
+Biketown, Indego, and Metro Bike Share:
 
 ```js
 const pathArrivals = await mta.path.arrivals({ station: "JSQ", direction: "to-ny" });
@@ -122,6 +123,14 @@ const caltrainDepartures = await mta.caltrain.departures({
   stop: "San Francisco Caltrain Station",
   limit: 5,
 });
+const metrorailRoutes = await mta.wmataRail.routes();
+const metrobusRoutes = await mta.wmataBus.routes();
+const soundTransitRoutes = await mta.soundTransit.routes();
+const houstonMetroRoutes = await mta.houstonMetro.routes();
+const mtsRoutes = await mta.sdmts.routes();
+const metraRoutes = await mta.metra.routes();
+const trimetRoutes = await mta.trimet.routes();
+const metrolinkRoutes = await mta.metrolink.routes();
 const divvyStations = await mta.divvy.stations({
   lat: 41.88,
   lon: -87.63,
@@ -268,6 +277,54 @@ override them.
 - `mta.brightline.departures(...)`
 - `mta.brightline.vehicles(...)`
 - `mta.brightline.alerts()`
+- `mta.wmataRail.stops(...)`
+- `mta.wmataRail.routes()`
+- `mta.wmataRail.routeStops(...)`
+- `mta.wmataRail.departures(...)`
+- `mta.wmataRail.vehicles(...)`
+- `mta.wmataRail.alerts()`
+- `mta.wmataBus.stops(...)`
+- `mta.wmataBus.routes()`
+- `mta.wmataBus.routeStops(...)`
+- `mta.wmataBus.departures(...)`
+- `mta.wmataBus.vehicles(...)`
+- `mta.wmataBus.alerts()`
+- `mta.soundTransit.stops(...)`
+- `mta.soundTransit.routes()`
+- `mta.soundTransit.routeStops(...)`
+- `mta.soundTransit.departures(...)`
+- `mta.soundTransit.vehicles(...)`
+- `mta.soundTransit.alerts()`
+- `mta.houstonMetro.stops(...)`
+- `mta.houstonMetro.routes()`
+- `mta.houstonMetro.routeStops(...)`
+- `mta.houstonMetro.departures(...)`
+- `mta.houstonMetro.vehicles(...)`
+- `mta.houstonMetro.alerts()`
+- `mta.sdmts.stops(...)`
+- `mta.sdmts.routes()`
+- `mta.sdmts.routeStops(...)`
+- `mta.sdmts.departures(...)`
+- `mta.sdmts.vehicles(...)`
+- `mta.sdmts.alerts()`
+- `mta.metra.stops(...)`
+- `mta.metra.routes()`
+- `mta.metra.routeStops(...)`
+- `mta.metra.departures(...)`
+- `mta.metra.vehicles(...)`
+- `mta.metra.alerts()`
+- `mta.trimet.stops(...)`
+- `mta.trimet.routes()`
+- `mta.trimet.routeStops(...)`
+- `mta.trimet.departures(...)`
+- `mta.trimet.vehicles(...)`
+- `mta.trimet.alerts()`
+- `mta.metrolink.stops(...)`
+- `mta.metrolink.routes()`
+- `mta.metrolink.routeStops(...)`
+- `mta.metrolink.departures(...)`
+- `mta.metrolink.vehicles(...)`
+- `mta.metrolink.alerts()`
 - `mta.bayWheels.stations(...)`
 - `mta.bayWheels.station(...)`
 - `mta.bayWheels.alerts()`
