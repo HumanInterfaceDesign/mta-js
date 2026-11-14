@@ -98,8 +98,8 @@ deployments.
 The hosted API also provides regional methods for PATH, NJ Transit Rail, NYC
 Ferry, Citi Bike, LIRR, Metro-North, MBTA, BART, King County Metro, CapMetro,
 Pace, Tri-Rail, Brightline, Denver RTD, Metro Transit, Pittsburgh Regional
-Transit, MARTA, VIA, GCRTA, CATS, SacRT, MARC, UTA, JTA, Bay Wheels, Divvy,
-Muni, Caltrain, Bluebikes, Capital Bikeshare, Biketown, Indego, and Metro Bike
+Transit, MARTA, VIA, GCRTA, CATS, SacRT, MARC, UTA, JTA, Muni, Caltrain, Bay
+Wheels, Divvy, Bluebikes, Capital Bikeshare, Biketown, Indego, and Metro Bike
 Share:
 
 ```js
